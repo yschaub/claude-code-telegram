@@ -7,7 +7,11 @@ from unittest.mock import patch
 
 import pytest
 
-from src.claude.exceptions import ClaudeProcessError, ClaudeTimeoutError
+from src.claude.exceptions import (
+    ClaudeProcessError,
+    ClaudeTimeoutError,
+    ClaudeToolValidationError,
+)
 from src.claude.sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
 from src.config.settings import Settings
 
@@ -226,6 +230,38 @@ class TestClaudeSDKManager:
 
         assert any(update.content == "partial" for update in updates)
         assert any(update.tool_calls for update in updates)
+
+    async def test_execute_command_blocks_tool_with_can_use_tool_callback(
+        self, manager: ClaudeSDKManager
+    ):
+        async def _create_process(*cmd, **kwargs):
+            stdout_lines = [
+                b'{"type":"thread.started","thread_id":"thread-abc"}\n',
+                b'{"type":"turn.started"}\n',
+                b'{"type":"exec.command.started","command":"rm -rf /tmp/demo"}\n',
+            ]
+            return _MockProcess(stdout_lines=stdout_lines, returncode=0)
+
+        callback_calls = []
+
+        async def _deny_bash(tool_name: str, tool_input: dict):
+            callback_calls.append((tool_name, tool_input))
+            return False, "Tool policy blocked this operation."
+
+        with patch(
+            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            side_effect=_create_process,
+        ):
+            with pytest.raises(ClaudeToolValidationError) as exc_info:
+                await manager.execute_command(
+                    prompt="delete temp dir",
+                    working_directory=Path("/tmp"),
+                    can_use_tool=_deny_bash,
+                )
+
+        assert "tool policy blocked" in str(exc_info.value).lower()
+        assert callback_calls
+        assert callback_calls[0][0] == "Bash"
 
     async def test_execute_command_not_logged_in_error(self, manager: ClaudeSDKManager):
         async def _create_process(*cmd, **kwargs):

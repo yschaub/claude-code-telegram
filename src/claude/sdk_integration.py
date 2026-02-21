@@ -13,12 +13,17 @@ import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 import structlog
 
 from ..config.settings import Settings
-from .exceptions import ClaudeMCPError, ClaudeProcessError, ClaudeTimeoutError
+from .exceptions import (
+    ClaudeMCPError,
+    ClaudeProcessError,
+    ClaudeTimeoutError,
+    ClaudeToolValidationError,
+)
 
 logger = structlog.get_logger()
 
@@ -117,6 +122,9 @@ class ClaudeSDKManager:
         session_id: Optional[str] = None,
         continue_session: bool = False,
         stream_callback: Optional[Callable[[StreamUpdate], None]] = None,
+        can_use_tool: Optional[
+            Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
+        ] = None,
     ) -> ClaudeResponse:
         """Execute command via ``codex exec``."""
         start_time = asyncio.get_running_loop().time()
@@ -199,7 +207,12 @@ class ClaudeSDKManager:
                     state["event_types"].append(event_type)
                     logger.debug("Codex JSON event", event_type=event_type)
 
-                    await self._handle_event(event, state, stream_callback)
+                    await self._handle_event(
+                        event=event,
+                        state=state,
+                        stream_callback=stream_callback,
+                        can_use_tool=can_use_tool,
+                    )
 
             async def _read_stderr() -> None:
                 assert process.stderr is not None
@@ -324,6 +337,14 @@ class ClaudeSDKManager:
             raise ClaudeTimeoutError(
                 f"Codex CLI timed out after {self.config.claude_timeout_seconds}s"
             ) from e
+        except ClaudeToolValidationError:
+            if process and process.returncode is None:
+                process.kill()
+                try:
+                    await process.wait()
+                except Exception:
+                    pass
+            raise
 
         finally:
             try:
@@ -438,6 +459,9 @@ class ClaudeSDKManager:
         event: Dict[str, Any],
         state: Dict[str, Any],
         stream_callback: Optional[Callable[[StreamUpdate], None]],
+        can_use_tool: Optional[
+            Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
+        ],
     ) -> None:
         event_type = str(event.get("type", ""))
 
@@ -488,25 +512,56 @@ class ClaudeSDKManager:
 
         tool_calls = self._extract_tool_calls(event)
         if tool_calls:
+            validated_tool_calls: List[Dict[str, Any]] = []
             for tool in tool_calls:
+                tool_name = str(tool.get("name", "")).strip()
+                tool_input = tool.get("input")
+                if not isinstance(tool_input, dict):
+                    tool_input = {}
+
+                if can_use_tool and tool_name:
+                    try:
+                        allowed, reason = await can_use_tool(tool_name, tool_input)
+                    except ClaudeToolValidationError:
+                        raise
+                    except Exception as callback_error:
+                        logger.warning(
+                            "Tool validation callback failed",
+                            tool_name=tool_name,
+                            error=str(callback_error),
+                        )
+                        raise ClaudeToolValidationError(
+                            f"Tool validation callback failed for {tool_name}: {callback_error}"
+                        ) from callback_error
+
+                    if not allowed:
+                        raise ClaudeToolValidationError(
+                            reason or f"Tool not allowed: {tool_name}"
+                        )
+
                 fingerprint = json.dumps(
                     {
-                        "name": tool.get("name"),
-                        "input": tool.get("input", {}),
+                        "name": tool_name,
+                        "input": tool_input,
                     },
                     sort_keys=True,
                 )
                 if fingerprint in state["tool_fingerprints"]:
                     continue
                 state["tool_fingerprints"].add(fingerprint)
-                state["tools"].append(tool)
+                normalized_tool = {
+                    "name": tool_name,
+                    "input": tool_input,
+                }
+                state["tools"].append(normalized_tool)
+                validated_tool_calls.append(normalized_tool)
 
-            if stream_callback:
+            if stream_callback and validated_tool_calls:
                 try:
                     await stream_callback(
                         StreamUpdate(
                             type="assistant",
-                            tool_calls=tool_calls,
+                            tool_calls=validated_tool_calls,
                             metadata={"event_type": event_type},
                         )
                     )

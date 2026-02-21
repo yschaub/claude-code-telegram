@@ -4,13 +4,12 @@ Provides simple interface for bot handlers.
 """
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 import structlog
 
 from ..config.settings import Settings
 from .exceptions import ClaudeProcessError
-from .exceptions import ClaudeToolValidationError
 from .monitor import ToolMonitor
 from .sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
 from .session import SessionManager
@@ -74,59 +73,13 @@ class ClaudeIntegration:
             user_id, working_directory, session_id
         )
 
-        # Track streaming updates and validate tool calls
-        tools_validated = True
-        validation_errors = []
-        blocked_tools = set()
+        can_use_tool = self._build_can_use_tool_callback(
+            user_id=user_id,
+            working_directory=working_directory,
+        )
 
+        # Pass through streaming updates
         async def stream_handler(update: StreamUpdate):
-            nonlocal tools_validated
-
-            # Validate tool calls
-            if update.tool_calls:
-                for tool_call in update.tool_calls:
-                    tool_name = tool_call["name"]
-                    valid, error = await self.tool_monitor.validate_tool_call(
-                        tool_name,
-                        tool_call.get("input", {}),
-                        working_directory,
-                        user_id,
-                    )
-
-                    if not valid:
-                        tools_validated = False
-                        validation_errors.append(error)
-
-                        # Track blocked tools
-                        if "Tool not allowed:" in error:
-                            blocked_tools.add(tool_name)
-
-                        logger.error(
-                            "Tool validation failed",
-                            tool_name=tool_name,
-                            error=error,
-                            user_id=user_id,
-                        )
-
-                        # For critical tools, we should fail fast
-                        if tool_name in ["Task", "Read", "Write", "Edit", "Bash"]:
-                            # Create comprehensive error message
-                            admin_instructions = self._get_admin_instructions(
-                                list(blocked_tools)
-                            )
-                            error_msg = self._create_tool_error_message(
-                                list(blocked_tools),
-                                self.config.claude_allowed_tools or [],
-                                admin_instructions,
-                            )
-
-                            raise ClaudeToolValidationError(
-                                error_msg,
-                                blocked_tools=list(blocked_tools),
-                                allowed_tools=self.config.claude_allowed_tools or [],
-                            )
-
-            # Pass to caller's handler
             if on_stream:
                 try:
                     await on_stream(update)
@@ -149,6 +102,7 @@ class ClaudeIntegration:
                     session_id=claude_session_id,
                     continue_session=should_continue,
                     stream_callback=stream_handler,
+                    can_use_tool=can_use_tool,
                 )
             except Exception as resume_error:
                 # If resume failed (e.g., session expired on Claude's side),
@@ -172,47 +126,10 @@ class ClaudeIntegration:
                         session_id=None,
                         continue_session=False,
                         stream_callback=stream_handler,
+                        can_use_tool=can_use_tool,
                     )
                 else:
                     raise
-
-            # Check if tool validation failed
-            if not tools_validated:
-                logger.error(
-                    "Command completed but tool validation failed",
-                    validation_errors=validation_errors,
-                )
-                # Mark response as having errors and include validation details
-                response.is_error = True
-                response.error_type = "tool_validation_failed"
-
-                # Extract blocked tool names for user feedback
-                blocked_tools = []
-                for error in validation_errors:
-                    if "Tool not allowed:" in error:
-                        tool_name = error.split("Tool not allowed: ")[1]
-                        blocked_tools.append(tool_name)
-
-                # Create user-friendly error message
-                if blocked_tools:
-                    tool_list = ", ".join(f"`{tool}`" for tool in blocked_tools)
-                    response.content = (
-                        f"🚫 **Tool Access Blocked**\n\n"
-                        f"Claude tried to use tools not allowed:\n"
-                        f"{tool_list}\n\n"
-                        f"**What you can do:**\n"
-                        f"• Contact the administrator to request access to these tools\n"
-                        f"• Try rephrasing your request to use different approaches\n"
-                        f"• Check what tools are currently available with `/status`\n\n"
-                        f"**Currently allowed tools:**\n"
-                        f"{', '.join(f'`{t}`' for t in self.config.claude_allowed_tools or [])}"
-                    )
-                else:
-                    response.content = (
-                        f"🚫 **Tool Validation Failed**\n\n"
-                        f"Tools failed security validation. Try different approach.\n\n"
-                        f"Details: {'; '.join(validation_errors)}"
-                    )
 
             # Update session (assigns real session_id for new sessions)
             await self.session_manager.update_session(session, response)
@@ -277,6 +194,9 @@ class ClaudeIntegration:
         session_id: Optional[str] = None,
         continue_session: bool = False,
         stream_callback: Optional[Callable] = None,
+        can_use_tool: Optional[
+            Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
+        ] = None,
     ) -> ClaudeResponse:
         """Execute command via SDK."""
         return await self.sdk_manager.execute_command(
@@ -285,6 +205,7 @@ class ClaudeIntegration:
             session_id=session_id,
             continue_session=continue_session,
             stream_callback=stream_callback,
+            can_use_tool=can_use_tool,
         )
 
     async def _find_resumable_session(
@@ -382,12 +303,27 @@ class ClaudeIntegration:
 
     async def get_tool_stats(self) -> Dict[str, Any]:
         """Get tool usage statistics."""
+        if not self.tool_monitor:
+            return {
+                "total_calls": 0,
+                "by_tool": {},
+                "unique_tools": 0,
+                "security_violations": 0,
+            }
         return self.tool_monitor.get_tool_stats()
 
     async def get_user_summary(self, user_id: int) -> Dict[str, Any]:
         """Get comprehensive user summary."""
         session_summary = await self.session_manager.get_user_session_summary(user_id)
-        tool_usage = self.tool_monitor.get_user_tool_usage(user_id)
+        tool_usage = (
+            self.tool_monitor.get_user_tool_usage(user_id)
+            if self.tool_monitor
+            else {
+                "user_id": user_id,
+                "security_violations": 0,
+                "violation_types": [],
+            }
+        )
 
         return {
             "user_id": user_id,
@@ -502,3 +438,38 @@ class ClaudeIntegration:
         ]
 
         return "\n".join(message)
+
+    def _build_can_use_tool_callback(
+        self,
+        user_id: int,
+        working_directory: Path,
+    ) -> Optional[
+        Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
+    ]:
+        """Build per-request tool authorization callback for SDK execution."""
+        if not self.tool_monitor:
+            return None
+
+        async def _can_use_tool(
+            tool_name: str,
+            tool_input: Dict[str, Any],
+        ) -> Tuple[bool, Optional[str]]:
+            valid, error = await self.tool_monitor.validate_tool_call(
+                tool_name=tool_name,
+                tool_input=tool_input,
+                working_directory=working_directory,
+                user_id=user_id,
+            )
+            if valid:
+                return True, None
+
+            blocked_tools = [tool_name]
+            admin_instructions = self._get_admin_instructions(blocked_tools)
+            error_message = self._create_tool_error_message(
+                blocked_tools=blocked_tools,
+                allowed_tools=self.config.claude_allowed_tools or [],
+                admin_instructions=admin_instructions,
+            )
+            return False, error_message
+
+        return _can_use_tool
