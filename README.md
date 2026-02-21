@@ -41,8 +41,8 @@ Bot: Running pytest...
 ### 2. Install
 
 ```bash
-git clone https://github.com/yschaub/claude-code-telegram.git
-cd claude-code-telegram
+git clone https://github.com/yschaub/codex-telegram.git
+cd codex-telegram
 make dev
 ```
 
