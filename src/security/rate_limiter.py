@@ -84,7 +84,7 @@ class RateLimiter:
             requests_per_window=self.config.rate_limit_requests,
             window_seconds=self.config.rate_limit_window,
             burst_capacity=self.config.rate_limit_burst,
-            max_cost_per_user=self.config.claude_max_cost_per_user,
+            max_cost_per_user=self.config.codex_max_cost_per_user,
             refill_rate=self.refill_rate,
         )
 
@@ -150,12 +150,12 @@ class RateLimiter:
         self._maybe_reset_cost_tracker(user_id)
 
         current_cost = self.cost_tracker[user_id]
-        if current_cost + cost > self.config.claude_max_cost_per_user:
-            remaining = max(0, self.config.claude_max_cost_per_user - current_cost)
+        if current_cost + cost > self.config.codex_max_cost_per_user:
+            remaining = max(0, self.config.codex_max_cost_per_user - current_cost)
             message = (
                 f"Cost limit exceeded. Remaining budget: ${remaining:.2f}. "
                 f"Current usage: ${current_cost:.2f}/"
-                f"${self.config.claude_max_cost_per_user:.2f}"
+                f"${self.config.codex_max_cost_per_user:.2f}"
             )
             return False, message
 
@@ -236,15 +236,15 @@ class RateLimiter:
         # Get cost status
         self._maybe_reset_cost_tracker(user_id)
         current_cost = self.cost_tracker[user_id]
-        cost_remaining = max(0, self.config.claude_max_cost_per_user - current_cost)
+        cost_remaining = max(0, self.config.codex_max_cost_per_user - current_cost)
 
         return {
             "request_bucket": bucket_status,
             "cost_usage": {
                 "current": current_cost,
-                "limit": self.config.claude_max_cost_per_user,
+                "limit": self.config.codex_max_cost_per_user,
                 "remaining": cost_remaining,
-                "utilization": current_cost / self.config.claude_max_cost_per_user,
+                "utilization": current_cost / self.config.codex_max_cost_per_user,
             },
             "last_reset": self.cost_reset_time.get(
                 user_id, datetime.now(UTC)
@@ -260,7 +260,7 @@ class RateLimiter:
                 "requests_per_window": self.config.rate_limit_requests,
                 "window_seconds": self.config.rate_limit_window,
                 "burst_capacity": self.config.rate_limit_burst,
-                "max_cost_per_user": self.config.claude_max_cost_per_user,
+                "max_cost_per_user": self.config.codex_max_cost_per_user,
                 "refill_rate": self.refill_rate,
             },
         }

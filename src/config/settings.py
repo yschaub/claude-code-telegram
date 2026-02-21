@@ -58,10 +58,10 @@ class Settings(BaseSettings):
     )
     disable_tool_validation: bool = Field(
         False,
-        description="Allow all Claude tools by bypassing tool validation checks",
+        description="Allow all Codex tools by bypassing tool validation checks",
     )
 
-    # Agent runtime settings (Codex primary, Claude aliases kept for compatibility)
+    # Agent runtime settings
     codex_cli_path: Optional[str] = Field(
         None,
         description="Path to Codex CLI executable",
@@ -92,35 +92,30 @@ class Settings(BaseSettings):
         description="Enable Codex full-auto mode for non-interactive execution",
         validation_alias=AliasChoices("CODEX_FULL_AUTO"),
     )
-
-    # Claude legacy settings (deprecated but still accepted)
-    claude_binary_path: Optional[str] = Field(
-        None, description="Path to Claude CLI binary (deprecated)"
+    codex_max_turns: int = Field(
+        DEFAULT_CLAUDE_MAX_TURNS,
+        description="Max conversation turns",
+        validation_alias=AliasChoices("CODEX_MAX_TURNS", "CLAUDE_MAX_TURNS"),
     )
-    claude_cli_path: Optional[str] = Field(
-        None, description="Path to Claude CLI executable"
+    codex_timeout_seconds: int = Field(
+        DEFAULT_CLAUDE_TIMEOUT_SECONDS,
+        description="Codex timeout",
+        validation_alias=AliasChoices(
+            "CODEX_TIMEOUT_SECONDS", "CLAUDE_TIMEOUT_SECONDS"
+        ),
     )
-    anthropic_api_key: Optional[SecretStr] = Field(
-        None,
-        description="Anthropic API key for SDK (optional if CLI logged in)",
-    )
-    claude_model: str = Field(
-        "claude-3-5-sonnet-20241022", description="Claude model to use"
-    )
-    claude_max_turns: int = Field(
-        DEFAULT_CLAUDE_MAX_TURNS, description="Max conversation turns"
-    )
-    claude_timeout_seconds: int = Field(
-        DEFAULT_CLAUDE_TIMEOUT_SECONDS, description="Claude timeout"
-    )
-    claude_max_cost_per_user: float = Field(
-        DEFAULT_CLAUDE_MAX_COST_PER_USER, description="Max cost per user"
+    codex_max_cost_per_user: float = Field(
+        DEFAULT_CLAUDE_MAX_COST_PER_USER,
+        description="Max cost per user",
+        validation_alias=AliasChoices(
+            "CODEX_MAX_COST_PER_USER", "CLAUDE_MAX_COST_PER_USER"
+        ),
     )
     # NOTE: When changing this list, also update docs/tools.md,
     # docs/configuration.md, .env.example,
     # src/claude/facade.py (_get_admin_instructions),
     # and src/bot/orchestrator.py (_TOOL_ICONS).
-    claude_allowed_tools: Optional[List[str]] = Field(
+    codex_allowed_tools: Optional[List[str]] = Field(
         default=[
             "Read",
             "Write",
@@ -139,11 +134,15 @@ class Settings(BaseSettings):
             "TodoWrite",
             "WebSearch",
         ],
-        description="List of allowed Claude tools",
+        description="List of allowed Codex tools",
+        validation_alias=AliasChoices("CODEX_ALLOWED_TOOLS", "CLAUDE_ALLOWED_TOOLS"),
     )
-    claude_disallowed_tools: Optional[List[str]] = Field(
+    codex_disallowed_tools: Optional[List[str]] = Field(
         default=[],
-        description="List of explicitly disallowed Claude tools/commands",
+        description="List of explicitly disallowed Codex tools/commands",
+        validation_alias=AliasChoices(
+            "CODEX_DISALLOWED_TOOLS", "CLAUDE_DISALLOWED_TOOLS"
+        ),
     )
 
     # Sandbox settings
@@ -252,7 +251,11 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+        populate_by_name=True,
     )
 
     @field_validator("allowed_users", "notification_chat_ids", mode="before")
@@ -269,9 +272,9 @@ class Settings(BaseSettings):
             return [int(uid) for uid in v]
         return v  # type: ignore[no-any-return]
 
-    @field_validator("claude_allowed_tools", mode="before")
+    @field_validator("codex_allowed_tools", mode="before")
     @classmethod
-    def parse_claude_allowed_tools(cls, v: Any) -> Optional[List[str]]:
+    def parse_codex_allowed_tools(cls, v: Any) -> Optional[List[str]]:
         """Parse comma-separated tool names."""
         if v is None:
             return None
@@ -465,12 +468,3 @@ class Settings(BaseSettings):
         if self.auth_token_secret:
             return self.auth_token_secret.get_secret_value()
         return None
-
-    @property
-    def anthropic_api_key_str(self) -> Optional[str]:
-        """Get Anthropic API key as string."""
-        return (
-            self.anthropic_api_key.get_secret_value()
-            if self.anthropic_api_key
-            else None
-        )

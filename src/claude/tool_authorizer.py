@@ -171,10 +171,10 @@ class DefaultToolAuthorizer:
 
         if (
             not self.disable_tool_validation
-            and hasattr(self.config, "claude_allowed_tools")
-            and self.config.claude_allowed_tools
+            and hasattr(self.config, "codex_allowed_tools")
+            and self.config.codex_allowed_tools
         ):
-            if tool_name not in self.config.claude_allowed_tools:
+            if tool_name not in self.config.codex_allowed_tools:
                 violation = {
                     "type": "disallowed_tool",
                     "tool_name": tool_name,
@@ -187,10 +187,10 @@ class DefaultToolAuthorizer:
 
         if (
             not self.disable_tool_validation
-            and hasattr(self.config, "claude_disallowed_tools")
-            and self.config.claude_disallowed_tools
+            and hasattr(self.config, "codex_disallowed_tools")
+            and self.config.codex_disallowed_tools
         ):
-            if tool_name in self.config.claude_disallowed_tools:
+            if tool_name in self.config.codex_disallowed_tools:
                 violation = {
                     "type": "explicitly_disallowed_tool",
                     "tool_name": tool_name,

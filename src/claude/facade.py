@@ -380,22 +380,22 @@ class ClaudeIntegration:
                     "To enable these tools, add them to your `.env` file:"
                 )
                 instructions.append("```")
-                instructions.append(f'CLAUDE_ALLOWED_TOOLS="{merged_tools_str}"')
+                instructions.append(f'CODEX_ALLOWED_TOOLS="{merged_tools_str}"')
                 instructions.append("```")
             else:
                 instructions.append("To enable these tools:")
                 instructions.append("1. Create a `.env` file in your project root")
                 instructions.append("2. Add the following line:")
                 instructions.append("```")
-                instructions.append(f'CLAUDE_ALLOWED_TOOLS="{merged_tools_str}"')
+                instructions.append(f'CODEX_ALLOWED_TOOLS="{merged_tools_str}"')
                 instructions.append("```")
 
             instructions.append("")
             instructions.append("Or modify the default in `src/config/settings.py`:")
             instructions.append("```python")
-            instructions.append("claude_allowed_tools: Optional[List[str]] = Field(")
+            instructions.append("codex_allowed_tools: Optional[List[str]] = Field(")
             instructions.append(f"    default=[{merged_tools_py}],")
-            instructions.append('    description="List of allowed Claude tools",')
+            instructions.append('    description="List of allowed Codex tools",')
             instructions.append(")")
             instructions.append("```")
 
@@ -467,7 +467,7 @@ class ClaudeIntegration:
             admin_instructions = self._get_admin_instructions(blocked_tools)
             error_message = self._create_tool_error_message(
                 blocked_tools=blocked_tools,
-                allowed_tools=self.config.claude_allowed_tools or [],
+                allowed_tools=self.config.codex_allowed_tools or [],
                 admin_instructions=admin_instructions,
             )
             return False, error_message

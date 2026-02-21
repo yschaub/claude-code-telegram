@@ -217,7 +217,7 @@ class ClaudeSDKManager:
 
             await asyncio.wait_for(
                 asyncio.gather(_read_stdout(), _read_stderr(), process.wait()),
-                timeout=self.config.claude_timeout_seconds,
+                timeout=self.config.codex_timeout_seconds,
             )
 
             duration_ms = int((asyncio.get_running_loop().time() - start_time) * 1000)
@@ -326,7 +326,7 @@ class ClaudeSDKManager:
                 except Exception:
                     pass
             raise ClaudeTimeoutError(
-                f"Codex CLI timed out after {self.config.claude_timeout_seconds}s"
+                f"Codex CLI timed out after {self.config.codex_timeout_seconds}s"
             ) from e
         except ClaudeToolValidationError:
             if process and process.returncode is None:

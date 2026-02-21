@@ -537,11 +537,11 @@ def test_create_test_config():
     # Test with overrides
     config = create_test_config(
         log_level="ERROR",
-        claude_max_turns=5,
+        codex_max_turns=5,
     )
 
     assert config.log_level == "ERROR"
-    assert config.claude_max_turns == 5
+    assert config.codex_max_turns == 5
 
 
 def test_configuration_error_handling():

@@ -23,7 +23,7 @@ def test_testing_config():
     assert config_dict["database_url"] == "sqlite:///:memory:"
     assert config_dict["approved_directory"] == "/tmp/test_projects"
     assert config_dict["enable_telemetry"] is False
-    assert config_dict["claude_timeout_seconds"] == 30
+    assert config_dict["codex_timeout_seconds"] == 30
     assert config_dict["rate_limit_requests"] == 1000
 
 
@@ -35,7 +35,7 @@ def test_production_config():
     assert config_dict["development_mode"] is False
     assert config_dict["log_level"] == "INFO"
     assert config_dict["enable_telemetry"] is True
-    assert config_dict["claude_max_cost_per_user"] == 5.0
+    assert config_dict["codex_max_cost_per_user"] == 5.0
     assert config_dict["rate_limit_requests"] == 5
 
 

@@ -17,8 +17,8 @@ class _MonitorConfigStub:
 
     def __init__(self, disable_tool_validation: bool):
         self.disable_tool_validation = disable_tool_validation
-        self.claude_allowed_tools = ["Read"]
-        self.claude_disallowed_tools = ["Bash"]
+        self.codex_allowed_tools = ["Read"]
+        self.codex_disallowed_tools = ["Bash"]
 
 
 class _ValidatorStub:

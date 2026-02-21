@@ -52,7 +52,7 @@ def config(tmp_path: Path) -> Settings:
         telegram_bot_token="test:token",
         telegram_bot_username="testbot",
         approved_directory=tmp_path,
-        claude_timeout_seconds=2,
+        codex_timeout_seconds=2,
     )
 
 
@@ -431,7 +431,7 @@ class TestClaudeSDKManager:
 
     async def test_execute_command_timeout(self, manager: ClaudeSDKManager):
         # Make timeout short so test stays fast.
-        manager.config.claude_timeout_seconds = 1
+        manager.config.codex_timeout_seconds = 1
 
         async def _create_process(*cmd, **kwargs):
             return _MockProcess(

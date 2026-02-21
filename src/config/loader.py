@@ -150,12 +150,12 @@ def _validate_config(settings: Settings) -> None:
     if settings.rate_limit_window <= 0:
         raise InvalidConfigError("rate_limit_window must be positive")
 
-    if settings.claude_timeout_seconds <= 0:
-        raise InvalidConfigError("claude_timeout_seconds must be positive")
+    if settings.codex_timeout_seconds <= 0:
+        raise InvalidConfigError("codex_timeout_seconds must be positive")
 
     # Validate cost limits
-    if settings.claude_max_cost_per_user <= 0:
-        raise InvalidConfigError("claude_max_cost_per_user must be positive")
+    if settings.codex_max_cost_per_user <= 0:
+        raise InvalidConfigError("codex_max_cost_per_user must be positive")
 
 
 def _get_enabled_features_summary(settings: Settings) -> list[str]:

@@ -89,7 +89,7 @@ class TestRateLimiter:
             rate_limit_requests=10,
             rate_limit_window=60,
             rate_limit_burst=20,
-            claude_max_cost_per_user=5.0,
+            codex_max_cost_per_user=5.0,
         )
 
     @pytest.fixture
@@ -226,7 +226,7 @@ class TestRateLimiter:
         assert "config" in status
         assert (
             status["config"]["max_cost_per_user"]
-            == rate_limiter.config.claude_max_cost_per_user
+            == rate_limiter.config.codex_max_cost_per_user
         )
 
     async def test_cleanup_inactive_users(self, rate_limiter):
