@@ -81,13 +81,13 @@ async def _format_progress_update(update_obj) -> Optional[str]:
             if len(update_obj.content) > 150
             else update_obj.content
         )
-        return f"🤖 <b>Claude is working...</b>\n\n<i>{content_preview}</i>"
+        return f"🤖 <b>Codex is working...</b>\n\n<i>{content_preview}</i>"
 
     elif update_obj.type == "system":
         # System initialization or other system messages
         if update_obj.metadata and update_obj.metadata.get("subtype") == "init":
             tools_count = len(update_obj.metadata.get("tools", []))
-            model = update_obj.metadata.get("model", "Claude")
+            model = update_obj.metadata.get("model", "Codex")
             return f"🚀 <b>Starting {model}</b> with {tools_count} tools available"
 
     return None
@@ -136,7 +136,7 @@ def _format_error_message(error: Exception | str) -> str:
     if isinstance(error_obj, ClaudeParsingError):
         return (
             "📄 <b>Response Parsing Error</b>\n\n"
-            f"Claude returned a response that could not be parsed:\n"
+            f"Codex returned a response that could not be parsed:\n"
             f"<code>{escape_html(error_str[:300])}</code>\n\n"
             "<b>What you can do:</b>\n"
             "• Try your request again\n"
@@ -164,7 +164,7 @@ def _format_error_message(error: Exception | str) -> str:
         if len(safe_error) > 500:
             safe_error = safe_error[:500] + "..."
         return (
-            f"❌ <b>Claude Error</b>\n\n"
+            f"❌ <b>Codex Error</b>\n\n"
             f"{safe_error}\n\n"
             f"Try again or use /new to start a fresh session."
         )
@@ -184,7 +184,7 @@ def _format_error_message(error: Exception | str) -> str:
     if "no conversation found" in error_lower:
         return (
             "🔄 <b>Session Not Found</b>\n\n"
-            "The previous Claude session could not be found or has expired.\n\n"
+            "The previous Codex session could not be found or has expired.\n\n"
             "<b>What you can do:</b>\n"
             "• Use /new to start a fresh session\n"
             "• Try your request again\n"
@@ -779,7 +779,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         session_id = context.user_data.get("claude_session_id")
 
-        # Process with Claude
+        # Process with Codex
         try:
             claude_response = await claude_integration.run_command(
                 prompt=prompt,
@@ -823,7 +823,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await claude_progress_msg.edit_text(
                 _format_error_message(e), parse_mode="HTML"
             )
-            logger.error("Claude file processing failed", error=str(e), user_id=user_id)
+            logger.error("Codex file processing failed", error=str(e), user_id=user_id)
 
         # Log successful file processing
         if audit_logger:
@@ -906,7 +906,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             )
             session_id = context.user_data.get("claude_session_id")
 
-            # Process with Claude
+            # Process with Codex
             try:
                 claude_response = await claude_integration.run_command(
                     prompt=processed_image.prompt,
@@ -948,7 +948,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     _format_error_message(e), parse_mode="HTML"
                 )
                 logger.error(
-                    "Claude image processing failed", error=str(e), user_id=user_id
+                    "Codex image processing failed", error=str(e), user_id=user_id
                 )
 
         except Exception as e:
@@ -1034,20 +1034,20 @@ async def _generate_placeholder_response(
         word in message_lower for word in ["list", "show", "see", "directory", "files"]
     ):
         response_text = (
-            f"🤖 <b>Claude Code Response</b> <i>(Placeholder)</i>\n\n"
+            f"🤖 <b>Codex Response</b> <i>(Placeholder)</i>\n\n"
             f"I understand you want to see files. Try using the /ls command to list files "
             f"in your current directory (<code>{relative_path}/</code>).\n\n"
             f"<b>Available commands:</b>\n"
             f"• /ls - List files\n"
             f"• /cd &lt;dir&gt; - Change directory\n"
             f"• /projects - Show projects\n\n"
-            f"<i>Note: Full Claude Code integration will be available in the next phase.</i>"
+            f"<i>Note: Full Codex integration will be available in the next phase.</i>"
         )
 
     elif any(word in message_lower for word in ["create", "generate", "make", "build"]):
         response_text = (
-            f"🤖 <b>Claude Code Response</b> <i>(Placeholder)</i>\n\n"
-            f"I understand you want to create something! Once the Claude Code integration "
+            f"🤖 <b>Codex Response</b> <i>(Placeholder)</i>\n\n"
+            f"I understand you want to create something! Once the Codex integration "
             f"is complete, I'll be able to:\n\n"
             f"• Generate code files\n"
             f"• Create project structures\n"
@@ -1059,14 +1059,14 @@ async def _generate_placeholder_response(
 
     elif any(word in message_lower for word in ["help", "how", "what", "explain"]):
         response_text = (
-            "🤖 <b>Claude Code Response</b> <i>(Placeholder)</i>\n\n"
+            "🤖 <b>Codex Response</b> <i>(Placeholder)</i>\n\n"
             "I'm here to help! Try using /help for available commands.\n\n"
             "<b>What I can do now:</b>\n"
             "• Navigate directories (/cd, /ls, /pwd)\n"
             "• Show projects (/projects)\n"
             "• Manage sessions (/new, /status)\n\n"
             "<b>Coming soon:</b>\n"
-            "• Full Claude Code integration\n"
+            "• Full Codex integration\n"
             "• Code generation and editing\n"
             "• File operations\n"
             "• Advanced programming assistance"
@@ -1074,7 +1074,7 @@ async def _generate_placeholder_response(
 
     else:
         response_text = (
-            f"🤖 <b>Claude Code Response</b> <i>(Placeholder)</i>\n\n"
+            f"🤖 <b>Codex Response</b> <i>(Placeholder)</i>\n\n"
             f"I received your message: \"{message_text[:100]}{'...' if len(message_text) > 100 else ''}\"\n\n"
             f"<b>Current Status:</b>\n"
             f"• Directory: <code>{relative_path}/</code>\n"

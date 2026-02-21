@@ -300,10 +300,10 @@ async def _handle_help_action(query, context: ContextTypes.DEFAULT_TYPE) -> None
         "• <code>/cd &lt;dir&gt;</code> - Change directory\n"
         "• <code>/projects</code> - Show projects\n\n"
         "<b>Sessions:</b>\n"
-        "• <code>/new</code> - New Claude session\n"
+        "• <code>/new</code> - New Codex session\n"
         "• <code>/status</code> - Session status\n\n"
         "<b>Tips:</b>\n"
-        "• Send any text to interact with Claude\n"
+        "• Send any text to interact with Codex\n"
         "• Upload files for code review\n"
         "• Use buttons for quick actions\n\n"
         "Use <code>/help</code> for detailed help."
@@ -450,7 +450,7 @@ async def _handle_new_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        f"🆕 <b>New Claude Code Session</b>\n\n"
+        f"🆕 <b>New Codex Session</b>\n\n"
         f"📂 Working directory: <code>{escape_html(str(relative_path))}/</code>\n\n"
         f"Ready to help you code! Send me a message to get started:",
         parse_mode="HTML",
@@ -468,7 +468,7 @@ async def _handle_end_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
     if not claude_session_id:
         await query.edit_message_text(
             "ℹ️ <b>No Active Session</b>\n\n"
-            "There's no active Claude session to end.\n\n"
+            "There's no active Codex session to end.\n\n"
             "<b>What you can do:</b>\n"
             "• Use the button below to start a new session\n"
             "• Check your session status\n"
@@ -515,7 +515,7 @@ async def _handle_end_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
 
     await query.edit_message_text(
         "✅ <b>Session Ended</b>\n\n"
-        f"Your Claude session has been terminated.\n\n"
+        f"Your Codex session has been terminated.\n\n"
         f"<b>Current Status:</b>\n"
         f"• Directory: <code>{escape_html(str(relative_path))}/</code>\n"
         f"• Session: None\n"
@@ -542,7 +542,7 @@ async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         if not claude_integration:
             await query.edit_message_text(
-                "❌ <b>Claude Integration Not Available</b>\n\n"
+                "❌ <b>Codex Integration Not Available</b>\n\n"
                 "Codex integration is not properly configured.",
                 parse_mode="HTML",
             )
@@ -595,7 +595,7 @@ async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> 
             # No session found to continue
             await query.edit_message_text(
                 "❌ <b>No Session Found</b>\n\n"
-                f"No recent Claude session found in this directory.\n"
+                f"No recent Codex session found in this directory.\n"
                 f"Directory: <code>{escape_html(str(current_dir.relative_to(settings.approved_directory)))}/</code>\n\n"
                 f"<b>What you can do:</b>\n"
                 f"• Use the button below to start a fresh session\n"
@@ -686,7 +686,7 @@ async def _handle_status_action(query, context: ContextTypes.DEFAULT_TYPE) -> No
         "📊 <b>Session Status</b>",
         "",
         f"📂 Directory: <code>{escape_html(str(relative_path))}/</code>",
-        f"🤖 Claude Session: {'✅ Active' if claude_session_id else '❌ None'}",
+        f"🤖 Codex Session: {'✅ Active' if claude_session_id else '❌ None'}",
         codex_cli_line,
         auth_line,
         usage_info.rstrip(),
@@ -818,7 +818,7 @@ async def _handle_start_coding_action(
     """Handle start coding action."""
     await query.edit_message_text(
         "🚀 <b>Ready to Code!</b>\n\n"
-        "Send me any message to start coding with Claude:\n\n"
+        "Send me any message to start coding with Codex:\n\n"
         "<b>Examples:</b>\n"
         '• <i>"Create a Python script that..."</i>\n'
         '• <i>"Help me debug this code..."</i>\n'
@@ -857,7 +857,7 @@ async def _handle_quick_actions_action(
     await query.edit_message_text(
         "🛠️ <b>Quick Actions</b>\n\n"
         "Choose a common development task:\n\n"
-        "<i>Note: These will be fully functional once Claude Code integration is complete.</i>",
+        "<i>Note: These will be fully functional once Codex integration is complete.</i>",
         parse_mode="HTML",
         reply_markup=reply_markup,
     )
@@ -911,7 +911,7 @@ async def handle_quick_action_callback(
     claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
     if not claude_integration:
         await query.edit_message_text(
-            "❌ <b>Claude Integration Not Available</b>\n\n"
+            "❌ <b>Codex Integration Not Available</b>\n\n"
             "Codex integration is not properly configured.",
             parse_mode="HTML",
         )
@@ -1082,7 +1082,7 @@ async def handle_conversation_callback(
 
         await query.edit_message_text(
             "✅ <b>Conversation Ended</b>\n\n"
-            f"Your Claude session has been terminated.\n\n"
+            f"Your Codex session has been terminated.\n\n"
             f"<b>Current Status:</b>\n"
             f"• Directory: <code>{escape_html(str(relative_path))}/</code>\n"
             f"• Session: None\n"

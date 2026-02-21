@@ -109,11 +109,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
 
     welcome_message = (
-        f"👋 Welcome to Claude Code Telegram Bot, {escape_html(user.first_name)}!\n\n"
-        f"🤖 I help you access Claude Code remotely through Telegram.\n\n"
+        f"👋 Welcome to Codex Telegram Bot, {escape_html(user.first_name)}!\n\n"
+        f"🤖 I help you access Codex remotely through Telegram.\n\n"
         f"<b>Available Commands:</b>\n"
         f"• <code>/help</code> - Show detailed help\n"
-        f"• <code>/new</code> - Start a new Claude session\n"
+        f"• <code>/new</code> - Start a new Codex session\n"
         f"• <code>/ls</code> - List files in current directory\n"
         f"• <code>/cd &lt;dir&gt;</code> - Change directory\n"
         f"• <code>/projects</code> - Show available projects\n"
@@ -123,7 +123,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"<b>Quick Start:</b>\n"
         f"1. Use <code>/projects</code> to see available projects\n"
         f"2. Use <code>/cd &lt;project&gt;</code> to navigate to a project\n"
-        f"3. Send any message to start coding with Claude!\n\n"
+        f"3. Send any message to start coding with Codex!\n\n"
         f"🔒 Your access is secured and all actions are logged.\n"
         f"📊 Use <code>/status</code> to check your usage limits."
         f"{sync_section}"
@@ -158,7 +158,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /help command."""
     help_text = (
-        "🤖 <b>Claude Code Telegram Bot Help</b>\n\n"
+        "🤖 <b>Codex Telegram Bot Help</b>\n\n"
         "<b>Navigation Commands:</b>\n"
         "• <code>/ls</code> - List files and directories\n"
         "• <code>/cd &lt;directory&gt;</code> - Change to directory\n"
@@ -180,11 +180,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "<b>Usage Examples:</b>\n"
         "• <code>cd myproject</code> - Enter project directory\n"
         "• <code>ls</code> - See what's in current directory\n"
-        "• <code>Create a simple Python script</code> - Ask Claude to code\n"
-        "• Send a file to have Claude review it\n\n"
+        "• <code>Create a simple Python script</code> - Ask Codex to code\n"
+        "• Send a file to have Codex review it\n\n"
         "<b>File Operations:</b>\n"
         "• Send text files (.py, .js, .md, etc.) for review\n"
-        "• Claude can read, modify, and create files\n"
+        "• Codex can read, modify, and create files\n"
         "• All file operations are within your approved directory\n\n"
         "<b>Security Features:</b>\n"
         "• 🔒 Path traversal protection\n"
@@ -195,7 +195,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• Use specific, clear requests for best results\n"
         "• Check <code>/status</code> to monitor your usage\n"
         "• Use quick action buttons when available\n"
-        "• File uploads are automatically processed by Claude\n\n"
+        "• File uploads are automatically processed by Codex\n\n"
         "Need more help? Contact your administrator."
     )
 
@@ -345,7 +345,7 @@ async def new_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"🆕 <b>New Claude Code Session</b>\n\n"
+        f"🆕 <b>New Codex Session</b>\n\n"
         f"📂 Working directory: <code>{relative_path}/</code>{cleared_info}\n\n"
         f"Context has been cleared. Send a message to start fresh, "
         f"or use the buttons below:",
@@ -373,7 +373,7 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     try:
         if not claude_integration:
             await update.message.reply_text(
-                "❌ <b>Claude Integration Not Available</b>\n\n"
+                "❌ <b>Codex Integration Not Available</b>\n\n"
                 "Codex integration is not properly configured."
             )
             return
@@ -449,7 +449,7 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             # No session found to continue
             await status_msg.edit_text(
                 "❌ <b>No Session Found</b>\n\n"
-                f"No recent Claude session found in this directory.\n"
+                f"No recent Codex session found in this directory.\n"
                 f"Directory: <code>{current_dir.relative_to(settings.approved_directory)}/</code>\n\n"
                 f"<b>What you can do:</b>\n"
                 f"• Use <code>/new</code> to start a fresh session\n"
@@ -926,7 +926,7 @@ async def session_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "📊 <b>Session Status</b>",
         "",
         f"📂 Directory: <code>{relative_path}/</code>",
-        f"🤖 Claude Session: {'✅ Active' if claude_session_id else '❌ None'}",
+        f"🤖 Codex Session: {'✅ Active' if claude_session_id else '❌ None'}",
         codex_cli_line,
         auth_line,
         usage_info.rstrip(),
@@ -999,7 +999,7 @@ async def export_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not claude_session_id:
         await update.message.reply_text(
             "❌ <b>No Active Session</b>\n\n"
-            "There's no active Claude session to export.\n\n"
+            "There's no active Codex session to export.\n\n"
             "<b>What you can do:</b>\n"
             "• Start a new session with <code>/new</code>\n"
             "• Continue an existing session with <code>/continue</code>\n"
@@ -1040,7 +1040,7 @@ async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not claude_session_id:
         await update.message.reply_text(
             "ℹ️ <b>No Active Session</b>\n\n"
-            "There's no active Claude session to end.\n\n"
+            "There's no active Codex session to end.\n\n"
             "<b>What you can do:</b>\n"
             "• Use <code>/new</code> to start a new session\n"
             "• Use <code>/status</code> to check your session status\n"
@@ -1076,7 +1076,7 @@ async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     await update.message.reply_text(
         "✅ <b>Session Ended</b>\n\n"
-        f"Your Claude session has been terminated.\n\n"
+        f"Your Codex session has been terminated.\n\n"
         f"<b>Current Status:</b>\n"
         f"• Directory: <code>{relative_path}/</code>\n"
         f"• Session: None\n"
@@ -1132,7 +1132,7 @@ async def quick_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "<b>Try:</b>\n"
                 "• Navigating to a project directory with <code>/cd</code>\n"
                 "• Creating some code files\n"
-                "• Starting a Claude session with <code>/new</code>"
+                "• Starting a Codex session with <code>/new</code>"
             )
             return
 
@@ -1188,8 +1188,8 @@ async def git_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 f"Current directory <code>{current_dir.relative_to(settings.approved_directory)}/</code> is not a git repository.\n\n"
                 f"<b>Options:</b>\n"
                 f"• Navigate to a git repository with <code>/cd</code>\n"
-                f"• Initialize a new repository (ask Claude to help)\n"
-                f"• Clone an existing repository (ask Claude to help)"
+                f"• Initialize a new repository (ask Codex to help)\n"
+                f"• Clone an existing repository (ask Codex to help)"
             )
             return
 

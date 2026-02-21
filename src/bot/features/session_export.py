@@ -111,7 +111,7 @@ class SessionExporter:
         lines = []
 
         # Header
-        lines.append("# Claude Code Session Export")
+        lines.append("# Codex Session Export")
         lines.append(f"\n**Session ID:** `{session['id']}`")
         lines.append(f"**Created:** {session['created_at']}")
         if session.get("updated_at"):
@@ -122,7 +122,7 @@ class SessionExporter:
         # Messages
         for msg in messages:
             timestamp = msg["created_at"]
-            role = "You" if msg["role"] == "user" else "Claude"
+            role = "You" if msg["role"] == "user" else "Codex"
             content = msg["content"]
 
             lines.append(f"### {role} - {timestamp}")
@@ -186,7 +186,7 @@ class SessionExporter:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Claude Code Session - {session['id'][:8]}</title>
+    <title>Codex Session - {session['id'][:8]}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

@@ -1,4 +1,4 @@
-"""High-level Claude Code integration facade.
+"""High-level Codex integration facade.
 
 Provides simple interface for bot handlers.
 """
@@ -18,7 +18,7 @@ logger = structlog.get_logger()
 
 
 class ClaudeIntegration:
-    """Main integration point for Claude Code."""
+    """Main integration point for Codex."""
 
     def __init__(
         self,
@@ -42,9 +42,9 @@ class ClaudeIntegration:
         on_stream: Optional[Callable[[StreamUpdate], None]] = None,
         force_new: bool = False,
     ) -> ClaudeResponse:
-        """Run Claude Code command with full integration."""
+        """Run Codex command with full integration."""
         logger.info(
-            "Running Claude command",
+            "Running Codex command",
             user_id=user_id,
             working_directory=str(working_directory),
             session_id=session_id,
@@ -92,7 +92,7 @@ class ClaudeIntegration:
             is_new = getattr(session, "is_new_session", False)
             should_continue = not is_new and bool(session.session_id)
 
-            # For new sessions, don't pass session_id to Claude Code
+            # For new sessions, don't pass session_id to Codex
             claude_session_id = session.session_id if should_continue else None
 
             try:
@@ -144,7 +144,7 @@ class ClaudeIntegration:
                 )
 
             logger.info(
-                "Claude command completed",
+                "Codex command completed",
                 session_id=response.session_id,
                 cost=response.cost,
                 duration_ms=response.duration_ms,
@@ -156,7 +156,7 @@ class ClaudeIntegration:
 
         except Exception as e:
             logger.error(
-                "Claude command failed",
+                "Codex command failed",
                 error=str(e),
                 user_id=user_id,
                 session_id=session.session_id,
@@ -216,7 +216,7 @@ class ClaudeIntegration:
         """Find the most recent resumable session for a user in a directory.
 
         Returns the session if one exists that is non-expired and has a real
-        (non-temporary) session ID from Claude. Returns None otherwise.
+        (non-temporary) session ID from Codex. Returns None otherwise.
         """
 
         sessions = await self.session_manager._get_user_sessions(user_id)
@@ -333,11 +333,11 @@ class ClaudeIntegration:
 
     async def shutdown(self) -> None:
         """Shutdown integration and cleanup resources."""
-        logger.info("Shutting down Claude integration")
+        logger.info("Shutting down Codex integration")
 
         await self.cleanup_expired_sessions()
 
-        logger.info("Claude integration shutdown complete")
+        logger.info("Codex integration shutdown complete")
 
     def _get_admin_instructions(self, blocked_tools: List[str]) -> str:
         """Generate admin instructions for enabling blocked tools."""
@@ -418,13 +418,13 @@ class ClaudeIntegration:
         message = [
             "🚫 **Tool Access Blocked**",
             "",
-            "Claude tried to use tools that are not currently allowed:",
+            "Codex tried to use tools that are not currently allowed:",
             f"{tool_list}",
             "",
             "**Why this happened:**",
-            "• Claude needs these tools to complete your request",
+            "• Codex needs these tools to complete your request",
             "• These tools are not in the allowed tools list",
-            "• This is a security feature to control what Claude can do",
+            "• This is a security feature to control what Codex can do",
             "",
             "**What you can do:**",
             "• Contact the administrator to request access to these tools",
