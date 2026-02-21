@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This document provides comprehensive information about configuring the Claude Code Telegram Bot.
+This document provides comprehensive information about configuring the Codex Code Telegram Bot.
 
 ## Overview
 
@@ -81,7 +81,7 @@ CODEX_ALLOWED_TOOLS=Read,Write,Edit,Bash,Glob,Grep,LS,Task,TaskOutput,MultiEdit,
 CODEX_DISALLOWED_TOOLS=
 ```
 
-> Legacy `CLAUDE_*` env vars are still accepted as aliases for backward compatibility.
+> Legacy `CODEX_*` env vars are still accepted as aliases for backward compatibility.
 
 #### Rate Limiting
 
@@ -316,14 +316,14 @@ The configuration system performs extensive validation:
 - Numeric values must be positive where appropriate
 - User IDs in `ALLOWED_USERS` must be valid integers
 
-## Claude Integration Options
+## Codex Integration Options
 
 ### Authentication Options
 
-#### Option 1: Use Existing Claude CLI Authentication (Recommended)
+#### Option 1: Use Existing Codex CLI Authentication (Recommended)
 ```bash
 # No ANTHROPIC_API_KEY needed - SDK will use CLI credentials
-# Ensure Claude CLI is installed and authenticated: claude auth login
+# Ensure Codex CLI is installed and authenticated: codex auth login
 ```
 
 #### Option 2: Direct API Key

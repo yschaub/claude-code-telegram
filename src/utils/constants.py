@@ -5,9 +5,9 @@ APP_NAME = "Codex Telegram Bot"
 APP_DESCRIPTION = "Telegram bot for remote Codex CLI access"
 
 # Default limits
-DEFAULT_CLAUDE_TIMEOUT_SECONDS = 300
-DEFAULT_CLAUDE_MAX_TURNS = 10
-DEFAULT_CLAUDE_MAX_COST_PER_USER = 10.0
+DEFAULT_CODEX_TIMEOUT_SECONDS = 300
+DEFAULT_CODEX_MAX_TURNS = 10
+DEFAULT_CODEX_MAX_COST_PER_USER = 10.0
 
 DEFAULT_RATE_LIMIT_REQUESTS = 10
 DEFAULT_RATE_LIMIT_WINDOW = 60
@@ -80,8 +80,8 @@ DEFAULT_DATABASE_URL = "sqlite:///data/bot.db"
 DEFAULT_BACKUP_RETENTION_DAYS = 30
 
 # Codex CLI defaults (legacy constant name kept for compatibility)
-DEFAULT_CLAUDE_BINARY = "codex"
-DEFAULT_CLAUDE_OUTPUT_FORMAT = "stream-json"
+DEFAULT_CODEX_BINARY = "codex"
+DEFAULT_CODEX_OUTPUT_FORMAT = "stream-json"
 
 # Logging
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

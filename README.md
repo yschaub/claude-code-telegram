@@ -41,8 +41,8 @@ Bot: Running pytest...
 ### 2. Install
 
 ```bash
-git clone https://github.com/RichardAtCT/claude-code-telegram.git
-cd claude-code-telegram
+git clone https://github.com/RichardAtCT/codex-code-telegram.git
+cd codex-code-telegram
 make dev
 ```
 
@@ -331,5 +331,5 @@ MIT License -- see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [Codex](https://claude.ai) by Anthropic
+- [Codex](https://codex.ai) by Anthropic
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)

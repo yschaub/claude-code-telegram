@@ -1,4 +1,4 @@
-"""Test Claude session management."""
+"""Test Codex session management."""
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -6,9 +6,9 @@ from typing import Dict, List, Optional
 
 import pytest
 
-from src.claude.sdk_integration import ClaudeResponse
-from src.claude.session import ClaudeSession, SessionManager
-from src.claude.tool_authorizer import DefaultToolAuthorizer
+from src.codex.sdk_integration import CodexResponse
+from src.codex.session import CodexSession, SessionManager
+from src.codex.tool_authorizer import DefaultToolAuthorizer
 from src.config.settings import Settings
 
 
@@ -37,30 +37,30 @@ class _MemorySessionStorage:
     """Minimal in-memory storage used by SessionManager tests."""
 
     def __init__(self):
-        self.sessions: Dict[str, ClaudeSession] = {}
+        self.sessions: Dict[str, CodexSession] = {}
 
-    async def save_session(self, session: ClaudeSession) -> None:
+    async def save_session(self, session: CodexSession) -> None:
         self.sessions[session.session_id] = session
 
-    async def load_session(self, session_id: str) -> Optional[ClaudeSession]:
+    async def load_session(self, session_id: str) -> Optional[CodexSession]:
         return self.sessions.get(session_id)
 
     async def delete_session(self, session_id: str) -> None:
         self.sessions.pop(session_id, None)
 
-    async def get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+    async def get_user_sessions(self, user_id: int) -> List[CodexSession]:
         return [s for s in self.sessions.values() if s.user_id == user_id]
 
-    async def get_all_sessions(self) -> List[ClaudeSession]:
+    async def get_all_sessions(self) -> List[CodexSession]:
         return list(self.sessions.values())
 
 
-class TestClaudeSession:
-    """Test ClaudeSession class."""
+class TestCodexSession:
+    """Test CodexSession class."""
 
     def test_session_creation(self):
         """Test session creation."""
-        session = ClaudeSession(
+        session = CodexSession(
             session_id="test-session",
             user_id=123,
             project_path=Path("/test/path"),
@@ -81,7 +81,7 @@ class TestClaudeSession:
         now = datetime.now(UTC)
         old_time = now - timedelta(hours=25)
 
-        session = ClaudeSession(
+        session = CodexSession(
             session_id="test-session",
             user_id=123,
             project_path=Path("/test/path"),
@@ -95,7 +95,7 @@ class TestClaudeSession:
 
     def test_update_usage(self):
         """Test usage update."""
-        session = ClaudeSession(
+        session = CodexSession(
             session_id="test-session",
             user_id=123,
             project_path=Path("/test/path"),
@@ -103,7 +103,7 @@ class TestClaudeSession:
             last_used=datetime.now(UTC),
         )
 
-        response = ClaudeResponse(
+        response = CodexResponse(
             content="Test response",
             session_id="test-session",
             cost=0.05,
@@ -122,7 +122,7 @@ class TestClaudeSession:
 
     def test_to_dict_and_from_dict(self):
         """Test serialization/deserialization."""
-        original = ClaudeSession(
+        original = CodexSession(
             session_id="test-session",
             user_id=123,
             project_path=Path("/test/path"),
@@ -136,7 +136,7 @@ class TestClaudeSession:
 
         # Convert to dict and back
         data = original.to_dict()
-        restored = ClaudeSession.from_dict(data)
+        restored = CodexSession.from_dict(data)
 
         assert restored.session_id == original.session_id
         assert restored.user_id == original.user_id
@@ -160,7 +160,7 @@ class TestClaudeSession:
             "tools_used": [],
         }
 
-        restored = ClaudeSession.from_dict(data)
+        restored = CodexSession.from_dict(data)
 
         assert restored.created_at.tzinfo is not None
         assert restored.last_used.tzinfo is not None
@@ -171,7 +171,7 @@ class TestClaudeSession:
         """Expiry check should not crash on naive legacy timestamps."""
         # Simulate legacy naive UTC timestamp persisted without tzinfo.
         naive_old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=30)
-        session = ClaudeSession(
+        session = CodexSession(
             session_id="legacy-session",
             user_id=123,
             project_path=Path("/test/path"),
@@ -193,7 +193,7 @@ class TestMemorySessionStorage:
     @pytest.fixture
     def sample_session(self):
         """Create sample session."""
-        return ClaudeSession(
+        return CodexSession(
             session_id="test-session",
             user_id=123,
             project_path=Path("/test/path"),
@@ -230,21 +230,21 @@ class TestMemorySessionStorage:
     async def test_get_user_sessions(self, storage):
         """Test getting user sessions."""
         # Create sessions for different users
-        session1 = ClaudeSession(
+        session1 = CodexSession(
             session_id="session1",
             user_id=123,
             project_path=Path("/test/path1"),
             created_at=datetime.now(UTC),
             last_used=datetime.now(UTC),
         )
-        session2 = ClaudeSession(
+        session2 = CodexSession(
             session_id="session2",
             user_id=123,
             project_path=Path("/test/path2"),
             created_at=datetime.now(UTC),
             last_used=datetime.now(UTC),
         )
-        session3 = ClaudeSession(
+        session3 = CodexSession(
             session_id="session3",
             user_id=456,
             project_path=Path("/test/path3"),
@@ -367,12 +367,12 @@ class TestToolMonitorConfigBypass:
         assert session.user_id == 123
         assert session.project_path == Path("/test/project")
         assert session.is_new_session is True
-        assert session.session_id == ""  # Empty until Claude responds
+        assert session.session_id == ""  # Empty until Codex responds
 
     async def test_get_existing_session(self, session_manager):
         """Test getting existing session by ID after it has a real session_id."""
-        # Simulate a session that has already received a real ID from Claude
-        existing = ClaudeSession(
+        # Simulate a session that has already received a real ID from Codex
+        existing = CodexSession(
             session_id="real-session-id",
             user_id=123,
             project_path=Path("/test/project"),
@@ -394,9 +394,9 @@ class TestToolMonitorConfigBypass:
     async def test_session_limit_enforcement(self, session_manager):
         """Test session limit enforcement."""
         # Seed sessions that have already received real IDs (simulating
-        # the full create -> Claude responds -> update_session lifecycle)
+        # the full create -> Codex responds -> update_session lifecycle)
         for i, path in enumerate(["/test/project1", "/test/project2"], start=1):
-            s = ClaudeSession(
+            s = CodexSession(
                 session_id=f"session-{i}",
                 user_id=123,
                 project_path=Path(path),
@@ -426,7 +426,7 @@ class TestToolMonitorConfigBypass:
 
 
 class TestUpdateSessionNewWithoutId:
-    """Edge case: Claude returns no session_id for a brand-new session."""
+    """Edge case: Codex returns no session_id for a brand-new session."""
 
     @pytest.fixture
     def config(self, tmp_path):
@@ -443,14 +443,14 @@ class TestUpdateSessionNewWithoutId:
         return SessionManager(config, _MemorySessionStorage())
 
     async def test_warns_and_does_not_persist(self, session_manager):
-        """When Claude returns no session_id, session is not persisted."""
+        """When Codex returns no session_id, session is not persisted."""
         session = await session_manager.get_or_create_session(
             user_id=999, project_path=Path("/test/no-id")
         )
         assert session.is_new_session is True
 
-        # Simulate Claude returning empty session_id
-        response = ClaudeResponse(
+        # Simulate Codex returning empty session_id
+        response = CodexResponse(
             content="hello",
             session_id="",
             cost=0.001,

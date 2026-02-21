@@ -11,7 +11,7 @@ import logging
 import sys
 from pathlib import Path
 
-from src.claude.sdk_integration import ClaudeSDKManager
+from src.codex.sdk_integration import CodexSDKManager
 from src.config.loader import load_config
 
 
@@ -44,9 +44,9 @@ def _build_parser() -> argparse.ArgumentParser:
 async def _run(args: argparse.Namespace) -> int:
     config = load_config()
     if args.timeout and args.timeout > 0:
-        config.claude_timeout_seconds = args.timeout
+        config.codex_timeout_seconds = args.timeout
 
-    manager = ClaudeSDKManager(config)
+    manager = CodexSDKManager(config)
     if not manager.codex_path:
         print("FAIL: Codex CLI not found (check PATH/CODEX_CLI_PATH).")
         return 1

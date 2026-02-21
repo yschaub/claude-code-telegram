@@ -4,7 +4,7 @@ import pytest
 
 from src.exceptions import (
     AuthenticationError,
-    ClaudeCodeTelegramError,
+    CodexCodeTelegramError,
     ConfigurationError,
     SecurityError,
 )
@@ -12,13 +12,13 @@ from src.exceptions import (
 
 def test_base_exception():
     """Test base exception."""
-    with pytest.raises(ClaudeCodeTelegramError):
-        raise ClaudeCodeTelegramError("Test error")
+    with pytest.raises(CodexCodeTelegramError):
+        raise CodexCodeTelegramError("Test error")
 
 
 def test_configuration_error():
     """Test configuration error inheritance."""
-    with pytest.raises(ClaudeCodeTelegramError):
+    with pytest.raises(CodexCodeTelegramError):
         raise ConfigurationError("Config error")
 
     with pytest.raises(ConfigurationError):
@@ -27,7 +27,7 @@ def test_configuration_error():
 
 def test_security_error():
     """Test security error inheritance."""
-    with pytest.raises(ClaudeCodeTelegramError):
+    with pytest.raises(CodexCodeTelegramError):
         raise SecurityError("Security error")
 
     with pytest.raises(SecurityError):

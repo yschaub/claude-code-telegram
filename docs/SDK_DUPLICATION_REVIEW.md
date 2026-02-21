@@ -2,22 +2,22 @@
 
 **Date:** 2026-02-19
 **Last Updated:** 2026-02-20 (post CLI backend removal)
-**SDK Version:** `claude-agent-sdk ^0.1.38`
-**Codebase Module:** `src/claude/` (~1,500 lines across 6 files)
+**SDK Version:** `codex-agent-sdk ^0.1.38`
+**Codebase Module:** `src/codex/` (~1,500 lines across 6 files)
 
-This document captures the findings from a deep review of the `src/claude/` module
-against the actual capabilities of the Claude Agent SDK. The goal is to identify
+This document captures the findings from a deep review of the `src/codex/` module
+against the actual capabilities of the Codex Agent SDK. The goal is to identify
 where we're duplicating SDK functionality, over-complicating things, or missing
 native features that would simplify the codebase.
 
-The SDK reference used: https://platform.claude.com/docs/en/agent-sdk/python
+The SDK reference used: https://platform.codex.com/docs/en/agent-sdk/python
 
 ---
 
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)
-2. [Finding 1: Using `query()` Instead of `ClaudeSDKClient`](#finding-1-using-query-instead-of-claudesdkclient)
+2. [Finding 1: Using `query()` Instead of `CodexSDKClient`](#finding-1-using-query-instead-of-codexsdkclient)
 3. [Finding 2: Tool Validation Duplicates `can_use_tool` and Hooks](#finding-2-tool-validation-duplicates-can_use_tool-and-hooks)
 4. [Finding 3: Dual Backend (SDK + CLI Subprocess)](#finding-3-dual-backend-sdk--cli-subprocess)
 5. [Finding 4: No Use of `max_budget_usd`](#finding-4-no-use-of-max_budget_usd)
@@ -35,12 +35,12 @@ The SDK reference used: https://platform.claude.com/docs/en/agent-sdk/python
 
 ## Executive Summary
 
-Approximately **61% (~1,700 lines)** of the `src/claude/` module duplicates or
+Approximately **61% (~1,700 lines)** of the `src/codex/` module duplicates or
 works around functionality the SDK already provides natively. The three highest
 impact issues are:
 
 1. Using the stateless `query()` API then building session management on top,
-   when `ClaudeSDKClient` provides stateful multi-turn conversations natively.
+   when `CodexSDKClient` provides stateful multi-turn conversations natively.
 2. Implementing reactive tool validation during streaming, when the SDK's
    `can_use_tool` callback blocks tools **before** execution.
 3. Maintaining a full CLI subprocess fallback backend that duplicates everything
@@ -48,16 +48,16 @@ impact issues are:
 
 ---
 
-## Finding 1: Using `query()` Instead of `ClaudeSDKClient`
+## Finding 1: Using `query()` Instead of `CodexSDKClient`
 
 **Impact: HIGH** | **Files: `session.py`, `facade.py`, `sdk_integration.py`**
 **Status: PARTIALLY COMPLETE** (PR #56, merged 2026-02-20)
 
 ### What the SDK provides
 
-The SDK has two APIs (see [official comparison table](https://platform.claude.com/docs/en/agent-sdk/python)):
+The SDK has two APIs (see [official comparison table](https://platform.codex.com/docs/en/agent-sdk/python)):
 
-| Feature | `query()` | `ClaudeSDKClient` |
+| Feature | `query()` | `CodexSDKClient` |
 |---------|-----------|-------------------|
 | Session | New each time | Reuses same session |
 | Conversation | Single exchange | Multiple exchanges in same context |
@@ -66,15 +66,15 @@ The SDK has two APIs (see [official comparison table](https://platform.claude.co
 | Custom Tools | Not supported | Supported |
 | Continue Chat | New session each time | Maintains conversation |
 
-`ClaudeSDKClient` is purpose-built for our use case:
+`CodexSDKClient` is purpose-built for our use case:
 
 ```python
-async with ClaudeSDKClient(options) as client:
+async with CodexSDKClient(options) as client:
     await client.query("first message")
     async for msg in client.receive_response():
         process(msg)
 
-    # Follow-up -- Claude remembers everything above
+    # Follow-up -- Codex remembers everything above
     await client.query("follow up question")
     async for msg in client.receive_response():
         process(msg)
@@ -86,9 +86,9 @@ We use `query()` (the one-shot API) and then build a 340-line `SessionManager`
 on top of it:
 
 - **Temporary session IDs** (`session.py:204-215`): We generate `temp_*` UUIDs
-  because we don't have a session ID until Claude responds.
+  because we don't have a session ID until Codex responds.
 - **Session ID swapping** (`session.py:236-257`): After the first response, we
-  delete the temp session and re-store under Claude's real ID.
+  delete the temp session and re-store under Codex's real ID.
 - **Resume logic** (`facade.py:149-155`): Complex checks for `is_new_session`,
   `temp_*` prefix detection, and conditional `options.resume` passing.
 - **Auto-resume search** (`facade.py:349-374`): Scans all user sessions to find
@@ -102,7 +102,7 @@ on top of it:
 
 ### What the refactor looks like
 
-With `ClaudeSDKClient`:
+With `CodexSDKClient`:
 
 - No temporary session IDs needed (client manages its own session)
 - No session swapping logic
@@ -113,12 +113,12 @@ With `ClaudeSDKClient`:
 
 ### What PR #56 achieved
 
-- **Migrated from `query()` to `ClaudeSDKClient`** — `sdk_integration.py` now
-  uses `async with ClaudeSDKClient(options) as client` for each request
+- **Migrated from `query()` to `CodexSDKClient`** — `sdk_integration.py` now
+  uses `async with CodexSDKClient(options) as client` for each request
 - **Eliminated `temp_*` session IDs** — new sessions use `session_id=""` with
-  deferred storage save until Claude responds with a real ID
+  deferred storage save until Codex responds with a real ID
 - **Removed session ID swapping** — `update_session()` now takes a
-  `ClaudeSession` object directly
+  `CodexSession` object directly
 - **Simplified facade** — post-execution flow no longer does delete-old/save-new
 
 ### What remains
@@ -126,12 +126,12 @@ With `ClaudeSDKClient`:
 - `SessionManager` is still 342 lines (target: ~90 lines of thin persistence)
 - `SessionStorage` ABC and `InMemorySessionStorage` still exist
 - Auto-resume search and stale session retry logic still present in facade
-- Not yet using `ClaudeSDKClient` for multi-turn within a single connection
+- Not yet using `CodexSDKClient` for multi-turn within a single connection
   (currently creates a new client per request)
 
 ### Original lines affected estimate
 
-- `session.py`: ~250 of 340 lines removable (keep `ClaudeSession` dataclass as
+- `session.py`: ~250 of 340 lines removable (keep `CodexSession` dataclass as
   thin storage model, remove `SessionStorage` ABC, `InMemorySessionStorage`,
   most of `SessionManager`)
 - `facade.py`: ~80 lines of session orchestration removable
@@ -167,7 +167,7 @@ async def permission_handler(tool_name, input_data, context):
 
     return PermissionResultAllow(updated_input=input_data)
 
-options = ClaudeAgentOptions(
+options = CodexAgentOptions(
     can_use_tool=permission_handler,
     allowed_tools=["Read", "Write", "Bash"],
     disallowed_tools=["WebFetch"],
@@ -195,7 +195,7 @@ Key capabilities:
 **Facade streaming interception** (`facade.py:93-138`):
 - Wraps the stream callback to intercept `StreamUpdate` objects
 - Validates tool calls **during** streaming (reactive, not preventive)
-- On validation failure, raises `ClaudeToolValidationError` — but the tool may
+- On validation failure, raises `CodexToolValidationError` — but the tool may
   have already started executing
 
 **Error message generation** (`facade.py:471-568`):
@@ -205,7 +205,7 @@ Key capabilities:
 ### Critical issue
 
 The current approach is **reactive**: it validates during streaming, meaning
-the tool call has already been sent to Claude by the time we check it. The SDK's
+the tool call has already been sent to Codex by the time we check it. The SDK's
 `can_use_tool` is **preventive**: it blocks before execution.
 
 ### What the refactor looks like
@@ -214,7 +214,7 @@ the tool call has already been sent to Claude by the time we check it. The SDK's
    - Path validation (from `SecurityValidator`)
    - Directory boundary checks (from `check_bash_directory_boundary`)
    - Any remaining custom security logic
-2. Pass `allowed_tools` and `disallowed_tools` directly to `ClaudeAgentOptions`
+2. Pass `allowed_tools` and `disallowed_tools` directly to `CodexAgentOptions`
 3. Remove `ToolMonitor` class entirely
 4. Remove streaming interception from facade
 5. If tool usage analytics are needed, use a `PostToolUse` hook instead of
@@ -236,12 +236,12 @@ the tool call has already been sent to Claude by the time we check it. The SDK's
 ### Resolution
 
 - Deleted `integration.py` (594 lines) and `parser.py` (338 lines)
-- Deleted `tests/unit/test_claude/test_parser.py` (127 lines)
+- Deleted `tests/unit/test_codex/test_parser.py` (127 lines)
 - Removed fallback logic from `facade.py` (`_execute_with_fallback` → `_execute`)
-- Removed `process_manager` parameter from `ClaudeIntegration.__init__()`
+- Removed `process_manager` parameter from `CodexIntegration.__init__()`
 - Removed `use_sdk` config flag from `Settings`
 - Removed `_sdk_failed_count` tracker
-- Single `ClaudeResponse`/`StreamUpdate` definition in `sdk_integration.py`
+- Single `CodexResponse`/`StreamUpdate` definition in `sdk_integration.py`
 - Updated all imports across `src/` and `tests/` to use `sdk_integration`
 - ~1,060 net lines removed
 
@@ -254,7 +254,7 @@ the tool call has already been sent to Claude by the time we check it. The SDK's
 ### What the SDK provides
 
 ```python
-options = ClaudeAgentOptions(
+options = CodexAgentOptions(
     max_budget_usd=5.00,  # Hard cap per query
 )
 ```
@@ -265,8 +265,8 @@ This is enforced by the SDK itself — the query stops if the budget is exceeded
 
 Cost is tracked in **four places** with no enforcement:
 
-1. `ClaudeSession.total_cost` — accumulated in `update_usage()` (session.py:52)
-2. `ClaudeResponse.cost` — returned from both SDK and CLI backends
+1. `CodexSession.total_cost` — accumulated in `update_usage()` (session.py:52)
+2. `CodexResponse.cost` — returned from both SDK and CLI backends
 3. `ResultMessage.total_cost_usd` — SDK native field
 4. SQLite `cost_tracking` table — historical storage
 
@@ -274,7 +274,7 @@ None of these **enforce** a limit. They only report after the fact.
 
 ### Recommendation
 
-- Set `max_budget_usd` in `ClaudeAgentOptions` for per-query cost caps
+- Set `max_budget_usd` in `CodexAgentOptions` for per-query cost caps
 - Keep SQLite tracking for historical reporting/dashboards
 - Consider adding a config setting like `max_cost_per_query` that maps to this
 
@@ -287,7 +287,7 @@ None of these **enforce** a limit. They only report after the fact.
 
 ### Resolution
 
-`disallowed_tools` is now passed directly to `ClaudeAgentOptions` in
+`disallowed_tools` is now passed directly to `CodexAgentOptions` in
 `sdk_integration.py`, so the SDK enforces it before any tool executes.
 The `ToolMonitor` still has its own runtime check as a redundant safety layer.
 
@@ -318,7 +318,7 @@ dangerous_patterns = [
 - **`$(` and `` ` ``** blocks command substitution — including
   `echo "Today is $(date)"`
 
-This effectively prevents Claude from doing useful shell work in many scenarios.
+This effectively prevents Codex from doing useful shell work in many scenarios.
 
 ### What the SDK provides
 
@@ -343,26 +343,26 @@ This effectively prevents Claude from doing useful shell work in many scenarios.
 
 ### The current approach
 
-`find_claude_cli()` (lines 46-86) searches:
-- Config/env `CLAUDE_CLI_PATH`
-- `shutil.which("claude")`
-- `~/.nvm/versions/node/*/bin/claude`
-- `~/.npm-global/bin/claude`
-- `~/node_modules/.bin/claude`
-- `/usr/local/bin/claude`, `/usr/bin/claude`
-- `~/AppData/Roaming/npm/claude.cmd` (Windows)
+`find_codex_cli()` (lines 46-86) searches:
+- Config/env `CODEX_CLI_PATH`
+- `shutil.which("codex")`
+- `~/.nvm/versions/node/*/bin/codex`
+- `~/.npm-global/bin/codex`
+- `~/node_modules/.bin/codex`
+- `/usr/local/bin/codex`, `/usr/bin/codex`
+- `~/AppData/Roaming/npm/codex.cmd` (Windows)
 
-`update_path_for_claude()` (lines 89-104) then modifies `os.environ["PATH"]`.
+`update_path_for_codex()` (lines 89-104) then modifies `os.environ["PATH"]`.
 
 ### What the SDK provides
 
-`ClaudeAgentOptions.cli_path` — if set, the SDK uses it. Otherwise the SDK has
+`CodexAgentOptions.cli_path` — if set, the SDK uses it. Otherwise the SDK has
 its own internal discovery.
 
 ### Recommendation
 
 - Only set `cli_path` if explicitly configured
-- Remove `find_claude_cli()` and `update_path_for_claude()` (~60 lines)
+- Remove `find_codex_cli()` and `update_path_for_codex()` (~60 lines)
 - If the SDK can't find the CLI, it raises `CLINotFoundError` — handle that with
   a helpful error message
 
@@ -407,7 +407,7 @@ fallback to `_extract_content_from_messages()` when `result` is `None`.
 
 ### The current approach
 
-`ClaudeSDKManager.active_sessions` (line 137) stores full message lists:
+`CodexSDKManager.active_sessions` (line 137) stores full message lists:
 
 ```python
 self.active_sessions[session_id] = {
@@ -428,7 +428,7 @@ Remove `active_sessions`, `_update_session()`, and related methods (~20 lines).
 ### Resolution
 
 PR #56 removed `active_sessions` dict and `_update_session()` from
-`ClaudeSDKManager`. The in-memory session state no longer exists.
+`CodexSDKManager`. The in-memory session state no longer exists.
 
 ---
 
@@ -442,15 +442,15 @@ PR #56 removed `active_sessions` dict and `_update_session()` from
 | `monitor.py` | 333 | 349 | **~280** | Replace with `can_use_tool` |
 | `facade.py` | 568 | ~340 | **~150** | Remove interception, admin messages |
 | `sdk_integration.py` | 513 | 480 | **~60** | Remove CLI discovery |
-| `exceptions.py` | 50 | 40 | **~10** | Remove `ClaudeToolValidationError` |
+| `exceptions.py` | 50 | 40 | **~10** | Remove `CodexToolValidationError` |
 | **Total** | **2,774** | **~1,550** | **~750** | **~48% remaining reduction** |
 
 **Completed so far:** ~1,220 net lines removed across PR #56 and F3/F5 work.
 
-Post-refactor, the `src/claude/` module should be roughly **~800 lines** with
+Post-refactor, the `src/codex/` module should be roughly **~800 lines** with
 clearer responsibilities:
 
-- `sdk_integration.py` — Thin wrapper around `ClaudeSDKClient`, builds options,
+- `sdk_integration.py` — Thin wrapper around `CodexSDKClient`, builds options,
   handles `can_use_tool` callback
 - `session.py` — Thin persistence (SQLite read/write of session IDs)
 - `facade.py` — Simplified public API for bot handlers
@@ -465,14 +465,14 @@ step should be a separate PR that can be tested independently.
 
 ### Phase 1: Low-Risk Cleanup (no behavioral changes)
 
-1. ~~**Remove dead in-memory state** from `ClaudeSDKManager`~~
+1. ~~**Remove dead in-memory state** from `CodexSDKManager`~~
    ✅ **DONE** (PR #56) — `active_sessions` and `_update_session()` removed.
 
 2. ~~**Use `ResultMessage.result`** for content extraction~~
    ✅ **DONE** (PR #56) — Uses `ResultMessage.result` with fallback.
 
 3. ~~**Pass `disallowed_tools` to SDK options**~~
-   ✅ **DONE** (F3/F5 branch) — Added to `ClaudeAgentOptions()`.
+   ✅ **DONE** (F3/F5 branch) — Added to `CodexAgentOptions()`.
 
 ### Phase 2: Remove CLI Subprocess Backend
 
@@ -486,7 +486,7 @@ step should be a separate PR that can be tested independently.
    - Create a callback function that encapsulates:
      - Path validation (from `SecurityValidator.validate_path()`)
      - Directory boundary checks (from `check_bash_directory_boundary()`)
-   - Wire it into `ClaudeAgentOptions`
+   - Wire it into `CodexAgentOptions`
    - ~50 lines of new code
 
 6. **Remove `ToolMonitor` and facade interception**
@@ -498,16 +498,16 @@ step should be a separate PR that can be tested independently.
      cases. Mitigate by writing thorough tests for the callback before removing
      `ToolMonitor`.
 
-### Phase 4: Switch to `ClaudeSDKClient`
+### Phase 4: Switch to `CodexSDKClient`
 
-7. **Replace `query()` with `ClaudeSDKClient`**
+7. **Replace `query()` with `CodexSDKClient`**
    ⚡ **PARTIALLY DONE** (PR #56) — Core migration complete:
-   - ✅ `ClaudeSDKManager` now uses `ClaudeSDKClient` per request
+   - ✅ `CodexSDKManager` now uses `CodexSDKClient` per request
    - ✅ Temporary `temp_*` session IDs eliminated
    - ✅ Session ID swapping logic removed
    - ❌ `SessionManager` not yet slimmed to thin persistence (~342 lines remain)
    - ❌ `SessionStorage` ABC / `InMemorySessionStorage` still present
-   - ❌ Not yet using persistent `ClaudeSDKClient` connections for multi-turn
+   - ❌ Not yet using persistent `CodexSDKClient` connections for multi-turn
    - Remaining: ~200 lines removable from session.py + facade.py
 
 8. **Add `max_budget_usd`**
@@ -517,13 +517,13 @@ step should be a separate PR that can be tested independently.
 
 ### Phase 5: Final Cleanup
 
-9. **Remove `find_claude_cli()` and `update_path_for_claude()`**
+9. **Remove `find_codex_cli()` and `update_path_for_codex()`**
    - Let SDK handle discovery, only pass `cli_path` if configured
    - ~60 lines removed
 
 10. **Consolidate dataclasses**
-    - Single `ClaudeResponse` definition (or use SDK types directly)
-    - Single `StreamUpdate` definition (or eliminate if using `ClaudeSDKClient`)
+    - Single `CodexResponse` definition (or use SDK types directly)
+    - Single `StreamUpdate` definition (or eliminate if using `CodexSDKClient`)
 
 ---
 
@@ -537,9 +537,9 @@ shift. Before starting Phase 2+:
 - Read changelogs between versions
 - Run full test suite after upgrade
 
-### `ClaudeSDKClient` Lifecycle
+### `CodexSDKClient` Lifecycle
 
-`ClaudeSDKClient` uses `async with` context manager. We need to manage client
+`CodexSDKClient` uses `async with` context manager. We need to manage client
 lifecycle carefully:
 - One client per user? Per user+directory? Global pool?
 - What happens when the client disconnects unexpectedly?
@@ -568,8 +568,8 @@ Before any refactor:
 
 | Date | PR | Findings Addressed | Summary |
 |------|:---:|:---:|---------|
-| 2026-02-20 | [#56](https://github.com/RichardAtCT/claude-code-telegram/pull/56) | F1 (partial), F8, F9 | Migrated `query()` → `ClaudeSDKClient`, eliminated `temp_*` IDs and session swapping, uses `ResultMessage.result`, removed dead `active_sessions` state |
-| 2026-02-20 | [#59](https://github.com/RichardAtCT/claude-code-telegram/pull/59) | F3 (complete), F5 (complete) | Deleted CLI subprocess backend (`integration.py`, `parser.py`), removed `use_sdk` flag, passed `disallowed_tools` to SDK, ~1,060 lines removed |
+| 2026-02-20 | [#56](https://github.com/RichardAtCT/codex-code-telegram/pull/56) | F1 (partial), F8, F9 | Migrated `query()` → `CodexSDKClient`, eliminated `temp_*` IDs and session swapping, uses `ResultMessage.result`, removed dead `active_sessions` state |
+| 2026-02-20 | [#59](https://github.com/RichardAtCT/codex-code-telegram/pull/59) | F3 (complete), F5 (complete) | Deleted CLI subprocess backend (`integration.py`, `parser.py`), removed `use_sdk` flag, passed `disallowed_tools` to SDK, ~1,060 lines removed |
 
 ### Next Steps
 
@@ -581,7 +581,7 @@ After that, slim down `SessionManager` (Phase 4, step 7 remainder).
 
 ## References
 
-- [Claude Agent SDK - Python Reference](https://platform.claude.com/docs/en/agent-sdk/python)
-- [Claude Agent SDK - Permissions](https://platform.claude.com/docs/en/agent-sdk/permissions)
-- [Claude Agent SDK - Hooks](https://platform.claude.com/docs/en/agent-sdk/hooks)
-- [GitHub: anthropics/claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python)
+- [Codex Agent SDK - Python Reference](https://platform.codex.com/docs/en/agent-sdk/python)
+- [Codex Agent SDK - Permissions](https://platform.codex.com/docs/en/agent-sdk/permissions)
+- [Codex Agent SDK - Hooks](https://platform.codex.com/docs/en/agent-sdk/hooks)
+- [GitHub: anthropics/codex-agent-sdk-python](https://github.com/anthropics/codex-agent-sdk-python)

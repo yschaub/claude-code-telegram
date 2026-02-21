@@ -4,7 +4,7 @@ This document describes the tools that Codex can use when interacting through th
 
 ## Overview
 
-By default, the bot allows **16 tools**. These are configured via the `CODEX_ALLOWED_TOOLS` environment variable and validated at runtime by the [Tool Authorizer](../src/claude/tool_authorizer.py).
+By default, the bot allows **16 tools**. These are configured via the `CODEX_ALLOWED_TOOLS` environment variable and validated at runtime by the [Tool Authorizer](../src/codex/tool_authorizer.py).
 
 When Codex uses a tool during a conversation, the tool name appears in real-time if verbose output is enabled (`/verbose 1` or `/verbose 2`). If Codex attempts to use a tool that is not in the allowed list, the bot blocks the call and displays an error with the list of currently allowed tools.
 
@@ -45,13 +45,13 @@ When Codex uses a tool during a conversation, the tool name appears in real-time
 | Tool | Icon | Description |
 |------|------|-------------|
 | **WebFetch** | 🌐 | Fetch a URL and process its content. HTML is converted to markdown before analysis. |
-| **WebSearch** | 🌐 | Search the web and return results. Useful for looking up documentation, current events, or information beyond Claude's training data. |
+| **WebSearch** | 🌐 | Search the web and return results. Useful for looking up documentation, current events, or information beyond Codex's training data. |
 
 ### Task Management
 
 | Tool | Icon | Description |
 |------|------|-------------|
-| **TodoRead** | ☑️ | Read the current task list that Claude uses to track multi-step work. |
+| **TodoRead** | ☑️ | Read the current task list that Codex uses to track multi-step work. |
 | **TodoWrite** | ☑️ | Create or update a task list to plan and track progress on complex operations. |
 
 ### Agent Orchestration

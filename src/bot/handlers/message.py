@@ -8,20 +8,21 @@ import structlog
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from ...claude.exceptions import (
-    ClaudeError,
-    ClaudeMCPError,
-    ClaudeParsingError,
-    ClaudeProcessError,
-    ClaudeSessionError,
-    ClaudeTimeoutError,
-    ClaudeToolValidationError,
+from ...codex.exceptions import (
+    CodexError,
+    CodexMCPError,
+    CodexParsingError,
+    CodexProcessError,
+    CodexSessionError,
+    CodexTimeoutError,
+    CodexToolValidationError,
 )
 from ...config.settings import Settings
 from ...security.audit import AuditLogger
 from ...security.rate_limiter import RateLimiter
 from ...security.validators import SecurityValidator
 from ..utils.html_format import escape_html
+from ..utils.session_keys import get_integration, get_session_id, set_session_id
 
 logger = structlog.get_logger()
 
@@ -110,7 +111,7 @@ def _format_error_message(error: Exception | str) -> str:
 
     # --- Dispatch on exception type first (most specific) ---
 
-    if isinstance(error_obj, ClaudeTimeoutError):
+    if isinstance(error_obj, CodexTimeoutError):
         return (
             "⏰ <b>Request Timeout</b>\n\n"
             f"{escape_html(error_str)}\n\n"
@@ -120,7 +121,7 @@ def _format_error_message(error: Exception | str) -> str:
             "• Try again — transient slowdowns happen"
         )
 
-    if isinstance(error_obj, ClaudeMCPError):
+    if isinstance(error_obj, CodexMCPError):
         server_hint = ""
         if error_obj.server_name:
             server_hint = f" (<code>{escape_html(error_obj.server_name)}</code>)"
@@ -133,7 +134,7 @@ def _format_error_message(error: Exception | str) -> str:
             "• Ask the administrator to check MCP server logs"
         )
 
-    if isinstance(error_obj, ClaudeParsingError):
+    if isinstance(error_obj, CodexParsingError):
         return (
             "📄 <b>Response Parsing Error</b>\n\n"
             f"Codex returned a response that could not be parsed:\n"
@@ -143,7 +144,7 @@ def _format_error_message(error: Exception | str) -> str:
             "• Rephrase your prompt if the problem persists"
         )
 
-    if isinstance(error_obj, ClaudeSessionError):
+    if isinstance(error_obj, CodexSessionError):
         return (
             "🔄 <b>Session Error</b>\n\n"
             f"{escape_html(error_str)}\n\n"
@@ -153,13 +154,13 @@ def _format_error_message(error: Exception | str) -> str:
             "• Use /status to check your current session"
         )
 
-    if isinstance(error_obj, ClaudeProcessError):
+    if isinstance(error_obj, CodexProcessError):
         return _format_process_error(error_str)
 
-    # ClaudeToolValidationError (and any future ClaudeError subtypes not
+    # CodexToolValidationError (and any future CodexError subtypes not
     # explicitly handled above) — preserve their existing message as-is
     # rather than downgrading to a generic "process error".
-    if isinstance(error_obj, ClaudeError):
+    if isinstance(error_obj, CodexError):
         safe_error = escape_html(error_str)
         if len(safe_error) > 500:
             safe_error = safe_error[:500] + "..."
@@ -235,7 +236,7 @@ def _format_error_message(error: Exception | str) -> str:
         )
 
     # Match known backend connection prefixes.
-    if error_lower.startswith("failed to connect to claude") or error_lower.startswith(
+    if error_lower.startswith("failed to connect to codex") or error_lower.startswith(
         "failed to connect to codex"
     ):
         return (
@@ -249,7 +250,7 @@ def _format_error_message(error: Exception | str) -> str:
         )
 
     # Match known CLI-not-found prefixes.
-    if error_lower.startswith("claude code not found") or error_lower.startswith(
+    if error_lower.startswith("codex code not found") or error_lower.startswith(
         "codex cli not found"
     ):
         return (
@@ -369,7 +370,7 @@ def _format_process_error(error_str: str) -> str:
 async def handle_text_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Handle regular text messages as Claude prompts."""
+    """Handle regular text messages as Codex prompts."""
     user_id = update.effective_user.id
     message_text = update.message.text
     settings: Settings = context.bot_data["settings"]
@@ -404,10 +405,10 @@ async def handle_text_message(
         )
 
         # Get Codex integration and storage from context
-        claude_integration = context.bot_data.get("claude_integration")
+        codex_integration = get_integration(context.bot_data)
         storage = context.bot_data.get("storage")
 
-        if not claude_integration:
+        if not codex_integration:
             await update.message.reply_text(
                 "❌ <b>Codex integration not available</b>\n\n"
                 "The Codex integration is not properly configured. "
@@ -422,7 +423,7 @@ async def handle_text_message(
         )
 
         # Get existing session ID
-        session_id = context.user_data.get("claude_session_id")
+        session_id = get_session_id(context.user_data)
 
         # Check if /new was used — skip auto-resume for this first message.
         # Flag is only cleared after a successful run so retries keep the intent.
@@ -437,9 +438,9 @@ async def handle_text_message(
             except Exception as e:
                 logger.warning("Failed to update progress message", error=str(e))
 
-        # Run Claude command
+        # Run Codex command
         try:
-            claude_response = await claude_integration.run_command(
+            codex_response = await codex_integration.run_command(
                 prompt=message_text,
                 working_directory=current_dir,
                 user_id=user_id,
@@ -453,21 +454,21 @@ async def handle_text_message(
                 context.user_data["force_new_session"] = False
 
             # Update session ID
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
-            # Check if Claude changed the working directory and update our tracking
-            _update_working_directory_from_claude_response(
-                claude_response, context, settings, user_id
+            # Check if Codex changed the working directory and update our tracking
+            _update_working_directory_from_codex_response(
+                codex_response, context, settings, user_id
             )
 
             # Log interaction to storage
             if storage:
                 try:
-                    await storage.save_claude_interaction(
+                    await storage.save_codex_interaction(
                         user_id=user_id,
-                        session_id=claude_response.session_id,
+                        session_id=codex_response.session_id,
                         prompt=message_text,
-                        response=claude_response,
+                        response=codex_response,
                         ip_address=None,  # Telegram doesn't provide IP
                     )
                 except Exception as e:
@@ -477,11 +478,11 @@ async def handle_text_message(
             from ..utils.formatting import ResponseFormatter
 
             formatter = ResponseFormatter(settings)
-            formatted_messages = formatter.format_claude_response(
-                claude_response.content
+            formatted_messages = formatter.format_codex_response(
+                codex_response.content
             )
 
-        except ClaudeToolValidationError as e:
+        except CodexToolValidationError as e:
             # Tool validation error with detailed instructions
             logger.error(
                 "Tool validation error",
@@ -552,25 +553,25 @@ async def handle_text_message(
             features.get_conversation_enhancer() if features else None
         )
 
-        if conversation_enhancer and claude_response:
+        if conversation_enhancer and codex_response:
             try:
                 # Update conversation context
                 conversation_context = conversation_enhancer.update_context(
-                    session_id=claude_response.session_id,
+                    session_id=codex_response.session_id,
                     user_id=user_id,
                     working_directory=str(current_dir),
-                    tools_used=claude_response.tools_used or [],
-                    response_content=claude_response.content,
+                    tools_used=codex_response.tools_used or [],
+                    response_content=codex_response.content,
                 )
 
                 # Check if we should show follow-up suggestions
                 if conversation_enhancer.should_show_suggestions(
-                    claude_response.tools_used or [], claude_response.content
+                    codex_response.tools_used or [], codex_response.content
                 ):
                     # Generate follow-up suggestions
                     suggestions = conversation_enhancer.generate_follow_up_suggestions(
-                        claude_response.content,
-                        claude_response.tools_used or [],
+                        codex_response.content,
+                        codex_response.tools_used or [],
                         conversation_context,
                     )
 
@@ -757,16 +758,16 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         # Delete progress message
         await progress_msg.delete()
 
-        # Create a new progress message for Claude processing
-        claude_progress_msg = await update.message.reply_text(
+        # Create a new progress message for Codex processing
+        codex_progress_msg = await update.message.reply_text(
             "🤖 Processing file with Codex...", parse_mode="HTML"
         )
 
         # Get Codex integration from context
-        claude_integration = context.bot_data.get("claude_integration")
+        codex_integration = get_integration(context.bot_data)
 
-        if not claude_integration:
-            await claude_progress_msg.edit_text(
+        if not codex_integration:
+            await codex_progress_msg.edit_text(
                 "❌ <b>Codex integration not available</b>\n\n"
                 "The Codex integration is not properly configured.",
                 parse_mode="HTML",
@@ -777,11 +778,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         current_dir = context.user_data.get(
             "current_directory", settings.approved_directory
         )
-        session_id = context.user_data.get("claude_session_id")
+        session_id = get_session_id(context.user_data)
 
         # Process with Codex
         try:
-            claude_response = await claude_integration.run_command(
+            codex_response = await codex_integration.run_command(
                 prompt=prompt,
                 working_directory=current_dir,
                 user_id=user_id,
@@ -789,23 +790,23 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             )
 
             # Update session ID
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
-            # Check if Claude changed the working directory and update our tracking
-            _update_working_directory_from_claude_response(
-                claude_response, context, settings, user_id
+            # Check if Codex changed the working directory and update our tracking
+            _update_working_directory_from_codex_response(
+                codex_response, context, settings, user_id
             )
 
             # Format and send response
             from ..utils.formatting import ResponseFormatter
 
             formatter = ResponseFormatter(settings)
-            formatted_messages = formatter.format_claude_response(
-                claude_response.content
+            formatted_messages = formatter.format_codex_response(
+                codex_response.content
             )
 
             # Delete progress message
-            await claude_progress_msg.delete()
+            await codex_progress_msg.delete()
 
             # Send responses
             for i, message in enumerate(formatted_messages):
@@ -820,7 +821,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     await asyncio.sleep(0.5)
 
         except Exception as e:
-            await claude_progress_msg.edit_text(
+            await codex_progress_msg.edit_text(
                 _format_error_message(e), parse_mode="HTML"
             )
             logger.error("Codex file processing failed", error=str(e), user_id=user_id)
@@ -884,16 +885,16 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             # Delete progress message
             await progress_msg.delete()
 
-            # Create Claude progress message
-            claude_progress_msg = await update.message.reply_text(
+            # Create Codex progress message
+            codex_progress_msg = await update.message.reply_text(
                 "🤖 Analyzing image with Codex...", parse_mode="HTML"
             )
 
             # Get Codex integration
-            claude_integration = context.bot_data.get("claude_integration")
+            codex_integration = get_integration(context.bot_data)
 
-            if not claude_integration:
-                await claude_progress_msg.edit_text(
+            if not codex_integration:
+                await codex_progress_msg.edit_text(
                     "❌ <b>Codex integration not available</b>\n\n"
                     "The Codex integration is not properly configured.",
                     parse_mode="HTML",
@@ -904,11 +905,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             current_dir = context.user_data.get(
                 "current_directory", settings.approved_directory
             )
-            session_id = context.user_data.get("claude_session_id")
+            session_id = get_session_id(context.user_data)
 
             # Process with Codex
             try:
-                claude_response = await claude_integration.run_command(
+                codex_response = await codex_integration.run_command(
                     prompt=processed_image.prompt,
                     working_directory=current_dir,
                     user_id=user_id,
@@ -916,18 +917,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 )
 
                 # Update session ID
-                context.user_data["claude_session_id"] = claude_response.session_id
+                set_session_id(context.user_data, codex_response.session_id)
 
                 # Format and send response
                 from ..utils.formatting import ResponseFormatter
 
                 formatter = ResponseFormatter(settings)
-                formatted_messages = formatter.format_claude_response(
-                    claude_response.content
+                formatted_messages = formatter.format_codex_response(
+                    codex_response.content
                 )
 
                 # Delete progress message
-                await claude_progress_msg.delete()
+                await codex_progress_msg.delete()
 
                 # Send responses
                 for i, message in enumerate(formatted_messages):
@@ -944,7 +945,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                         await asyncio.sleep(0.5)
 
             except Exception as e:
-                await claude_progress_msg.edit_text(
+                await codex_progress_msg.edit_text(
                     _format_error_message(e), parse_mode="HTML"
                 )
                 logger.error(
@@ -1088,14 +1089,14 @@ async def _generate_placeholder_response(
     return {"text": response_text, "parse_mode": "HTML"}
 
 
-def _update_working_directory_from_claude_response(
-    claude_response, context, settings, user_id
+def _update_working_directory_from_codex_response(
+    codex_response, context, settings, user_id
 ):
-    """Update the working directory based on Claude's response content."""
+    """Update the working directory based on Codex's response content."""
     import re
     from pathlib import Path
 
-    # Look for directory changes in Claude's response
+    # Look for directory changes in Codex's response
     # This searches for common patterns that indicate directory changes
     patterns = [
         r"(?:^|\n).*?cd\s+([^\s\n]+)",  # cd command
@@ -1104,7 +1105,7 @@ def _update_working_directory_from_claude_response(
         r"(?:^|\n).*?Working directory:?\s*([^\s\n]+)",  # working directory indication
     ]
 
-    content = claude_response.content.lower()
+    content = codex_response.content.lower()
     current_dir = context.user_data.get(
         "current_directory", settings.approved_directory
     )
@@ -1133,7 +1134,7 @@ def _update_working_directory_from_claude_response(
                 ):
                     context.user_data["current_directory"] = new_path
                     logger.info(
-                        "Updated working directory from Claude response",
+                        "Updated working directory from Codex response",
                         old_dir=str(current_dir),
                         new_dir=str(new_path),
                         user_id=user_id,
@@ -1143,6 +1144,6 @@ def _update_working_directory_from_claude_response(
             except (ValueError, OSError) as e:
                 # Invalid path, skip this match
                 logger.debug(
-                    "Invalid path in Claude response", path=match, error=str(e)
+                    "Invalid path in Codex response", path=match, error=str(e)
                 )
                 continue

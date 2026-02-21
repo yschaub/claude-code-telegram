@@ -22,12 +22,18 @@ from telegram.ext import (
     filters,
 )
 
-from ..claude.exceptions import ClaudeToolValidationError
-from ..claude.sdk_integration import StreamUpdate
+from ..codex.exceptions import CodexToolValidationError
+from ..codex.sdk_integration import StreamUpdate
 from ..config.settings import Settings
 from ..projects import PrivateTopicsUnavailableError
 from .utils.html_format import escape_html
 from .utils.runtime_health import get_codex_runtime_health
+from .utils.session_keys import (
+    clear_session_id,
+    get_integration,
+    get_session_id,
+    set_session_id,
+)
 
 logger = structlog.get_logger()
 
@@ -203,7 +209,10 @@ class MessageOrchestrator:
             current_dir = project_root
 
         context.user_data["current_directory"] = current_dir
-        context.user_data["claude_session_id"] = state.get("claude_session_id")
+        set_session_id(
+            context.user_data,
+            state.get("codex_session_id"),
+        )
         context.user_data["_thread_context"] = {
             "chat_id": chat.id,
             "message_thread_id": message_thread_id,
@@ -228,10 +237,11 @@ class MessageOrchestrator:
         if not self._is_within(current_dir, project_root) or not current_dir.is_dir():
             current_dir = project_root
 
+        session_id = get_session_id(context.user_data)
         thread_states = context.user_data.setdefault("thread_state", {})
         thread_states[thread_context["state_key"]] = {
             "current_directory": str(current_dir),
-            "claude_session_id": context.user_data.get("claude_session_id"),
+            "codex_session_id": session_id,
             "project_slug": thread_context["project_slug"],
         }
 
@@ -299,7 +309,7 @@ class MessageOrchestrator:
         for cmd, handler in handlers:
             app.add_handler(CommandHandler(cmd, self._inject_deps(handler)))
 
-        # Text messages -> Claude
+        # Text messages -> Codex
         app.add_handler(
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND,
@@ -308,7 +318,7 @@ class MessageOrchestrator:
             group=10,
         )
 
-        # File uploads -> Claude
+        # File uploads -> Codex
         app.add_handler(
             MessageHandler(
                 filters.Document.ALL, self._inject_deps(self.agentic_document)
@@ -316,7 +326,7 @@ class MessageOrchestrator:
             group=10,
         )
 
-        # Photo uploads -> Claude
+        # Photo uploads -> Codex
         app.add_handler(
             MessageHandler(filters.PHOTO, self._inject_deps(self.agentic_photo)),
             group=10,
@@ -473,7 +483,7 @@ class MessageOrchestrator:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Reset session, one-line confirmation."""
-        context.user_data["claude_session_id"] = None
+        clear_session_id(context.user_data)
         context.user_data["session_started"] = True
         context.user_data["force_new_session"] = True
 
@@ -488,7 +498,7 @@ class MessageOrchestrator:
         )
         dir_display = str(current_dir)
 
-        session_id = context.user_data.get("claude_session_id")
+        session_id = get_session_id(context.user_data)
         session_status = "active" if session_id else "none"
 
         # Cost info
@@ -574,7 +584,7 @@ class MessageOrchestrator:
         for entry in activity_log[-15:]:  # Show last 15 entries max
             kind = entry.get("kind", "tool")
             if kind == "text":
-                # Claude's intermediate reasoning/commentary
+                # Codex's intermediate reasoning/commentary
                 snippet = entry.get("detail", "")
                 if verbose_level >= 2:
                     lines.append(f"\U0001f4ac {snippet}")
@@ -700,7 +710,7 @@ class MessageOrchestrator:
     async def agentic_text(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Direct Claude passthrough. Simple progress. No suggestions."""
+        """Direct Codex passthrough. Simple progress. No suggestions."""
         user_id = update.effective_user.id
         message_text = update.message.text
 
@@ -724,8 +734,8 @@ class MessageOrchestrator:
         verbose_level = self._get_verbose_level(context)
         progress_msg = await update.message.reply_text("Working...")
 
-        claude_integration = context.bot_data.get("claude_integration")
-        if not claude_integration:
+        codex_integration = get_integration(context.bot_data)
+        if not codex_integration:
             await progress_msg.edit_text(
                 "Codex integration not available. Check configuration."
             )
@@ -734,7 +744,7 @@ class MessageOrchestrator:
         current_dir = context.user_data.get(
             "current_directory", self.settings.approved_directory
         )
-        session_id = context.user_data.get("claude_session_id")
+        session_id = get_session_id(context.user_data)
 
         # Check if /new was used — skip auto-resume for this first message.
         # Flag is only cleared after a successful run so retries keep the intent.
@@ -752,7 +762,7 @@ class MessageOrchestrator:
 
         success = True
         try:
-            claude_response = await claude_integration.run_command(
+            codex_response = await codex_integration.run_command(
                 prompt=message_text,
                 working_directory=current_dir,
                 user_id=user_id,
@@ -765,24 +775,24 @@ class MessageOrchestrator:
             if force_new:
                 context.user_data["force_new_session"] = False
 
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
             # Track directory changes
-            from .handlers.message import _update_working_directory_from_claude_response
+            from .handlers.message import _update_working_directory_from_codex_response
 
-            _update_working_directory_from_claude_response(
-                claude_response, context, self.settings, user_id
+            _update_working_directory_from_codex_response(
+                codex_response, context, self.settings, user_id
             )
 
             # Store interaction
             storage = context.bot_data.get("storage")
             if storage:
                 try:
-                    await storage.save_claude_interaction(
+                    await storage.save_codex_interaction(
                         user_id=user_id,
-                        session_id=claude_response.session_id,
+                        session_id=codex_response.session_id,
                         prompt=message_text,
-                        response=claude_response,
+                        response=codex_response,
                         ip_address=None,
                     )
                 except Exception as e:
@@ -792,11 +802,11 @@ class MessageOrchestrator:
             from .utils.formatting import ResponseFormatter
 
             formatter = ResponseFormatter(self.settings)
-            formatted_messages = formatter.format_claude_response(
-                claude_response.content
+            formatted_messages = formatter.format_codex_response(
+                codex_response.content
             )
 
-        except ClaudeToolValidationError as e:
+        except CodexToolValidationError as e:
             success = False
             logger.error("Tool validation error", error=str(e), user_id=user_id)
             from .utils.formatting import FormattedMessage
@@ -864,7 +874,7 @@ class MessageOrchestrator:
     async def agentic_document(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Process file upload -> Claude, minimal chrome."""
+        """Process file upload -> Codex, minimal chrome."""
         user_id = update.effective_user.id
         document = update.message.document
 
@@ -928,9 +938,9 @@ class MessageOrchestrator:
                 )
                 return
 
-        # Process with Claude
-        claude_integration = context.bot_data.get("claude_integration")
-        if not claude_integration:
+        # Process with Codex
+        codex_integration = get_integration(context.bot_data)
+        if not codex_integration:
             await progress_msg.edit_text(
                 "Codex integration not available. Check configuration."
             )
@@ -939,7 +949,7 @@ class MessageOrchestrator:
         current_dir = context.user_data.get(
             "current_directory", self.settings.approved_directory
         )
-        session_id = context.user_data.get("claude_session_id")
+        session_id = get_session_id(context.user_data)
 
         # Check if /new was used — skip auto-resume for this first message.
         # Flag is only cleared after a successful run so retries keep the intent.
@@ -953,7 +963,7 @@ class MessageOrchestrator:
 
         heartbeat = self._start_typing_heartbeat(chat)
         try:
-            claude_response = await claude_integration.run_command(
+            codex_response = await codex_integration.run_command(
                 prompt=prompt,
                 working_directory=current_dir,
                 user_id=user_id,
@@ -965,19 +975,19 @@ class MessageOrchestrator:
             if force_new:
                 context.user_data["force_new_session"] = False
 
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
-            from .handlers.message import _update_working_directory_from_claude_response
+            from .handlers.message import _update_working_directory_from_codex_response
 
-            _update_working_directory_from_claude_response(
-                claude_response, context, self.settings, user_id
+            _update_working_directory_from_codex_response(
+                codex_response, context, self.settings, user_id
             )
 
             from .utils.formatting import ResponseFormatter
 
             formatter = ResponseFormatter(self.settings)
-            formatted_messages = formatter.format_claude_response(
-                claude_response.content
+            formatted_messages = formatter.format_codex_response(
+                codex_response.content
             )
 
             await progress_msg.delete()
@@ -996,14 +1006,14 @@ class MessageOrchestrator:
             from .handlers.message import _format_error_message
 
             await progress_msg.edit_text(_format_error_message(e), parse_mode="HTML")
-            logger.error("Claude file processing failed", error=str(e), user_id=user_id)
+            logger.error("Codex file processing failed", error=str(e), user_id=user_id)
         finally:
             heartbeat.cancel()
 
     async def agentic_photo(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """Process photo -> Claude, minimal chrome."""
+        """Process photo -> Codex, minimal chrome."""
         user_id = update.effective_user.id
 
         features = context.bot_data.get("features")
@@ -1023,8 +1033,8 @@ class MessageOrchestrator:
                 photo, update.message.caption
             )
 
-            claude_integration = context.bot_data.get("claude_integration")
-            if not claude_integration:
+            codex_integration = get_integration(context.bot_data)
+            if not codex_integration:
                 await progress_msg.edit_text(
                     "Codex integration not available. Check configuration."
                 )
@@ -1033,7 +1043,7 @@ class MessageOrchestrator:
             current_dir = context.user_data.get(
                 "current_directory", self.settings.approved_directory
             )
-            session_id = context.user_data.get("claude_session_id")
+            session_id = get_session_id(context.user_data)
 
             # Check if /new was used — skip auto-resume for this first message.
             # Flag is only cleared after a successful run so retries keep the intent.
@@ -1047,7 +1057,7 @@ class MessageOrchestrator:
 
             heartbeat = self._start_typing_heartbeat(chat)
             try:
-                claude_response = await claude_integration.run_command(
+                codex_response = await codex_integration.run_command(
                     prompt=processed_image.prompt,
                     working_directory=current_dir,
                     user_id=user_id,
@@ -1061,13 +1071,13 @@ class MessageOrchestrator:
             if force_new:
                 context.user_data["force_new_session"] = False
 
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
             from .utils.formatting import ResponseFormatter
 
             formatter = ResponseFormatter(self.settings)
-            formatted_messages = formatter.format_claude_response(
-                claude_response.content
+            formatted_messages = formatter.format_codex_response(
+                codex_response.content
             )
 
             await progress_msg.delete()
@@ -1087,7 +1097,7 @@ class MessageOrchestrator:
 
             await progress_msg.edit_text(_format_error_message(e), parse_mode="HTML")
             logger.error(
-                "Claude photo processing failed", error=str(e), user_id=user_id
+                "Codex photo processing failed", error=str(e), user_id=user_id
             )
 
     async def agentic_repo(
@@ -1116,15 +1126,15 @@ class MessageOrchestrator:
             context.user_data["current_directory"] = target_path
 
             # Try to find a resumable session
-            claude_integration = context.bot_data.get("claude_integration")
+            codex_integration = get_integration(context.bot_data)
             session_id = None
-            if claude_integration:
-                existing = await claude_integration._find_resumable_session(
+            if codex_integration:
+                existing = await codex_integration._find_resumable_session(
                     update.effective_user.id, target_path
                 )
                 if existing:
                     session_id = existing.session_id
-            context.user_data["claude_session_id"] = session_id
+            set_session_id(context.user_data, session_id)
 
             is_git = (target_path / ".git").is_dir()
             git_badge = " (git)" if is_git else ""
@@ -1209,15 +1219,15 @@ class MessageOrchestrator:
         context.user_data["current_directory"] = new_path
 
         # Look for a resumable session instead of always clearing
-        claude_integration = context.bot_data.get("claude_integration")
+        codex_integration = get_integration(context.bot_data)
         session_id = None
-        if claude_integration:
-            existing = await claude_integration._find_resumable_session(
+        if codex_integration:
+            existing = await codex_integration._find_resumable_session(
                 query.from_user.id, new_path
             )
             if existing:
                 session_id = existing.session_id
-        context.user_data["claude_session_id"] = session_id
+        set_session_id(context.user_data, session_id)
 
         is_git = (new_path / ".git").is_dir()
         git_badge = " (git)" if is_git else ""

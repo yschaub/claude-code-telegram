@@ -1,10 +1,10 @@
-"""Test Claude tool monitor — especially bash directory boundary checking."""
+"""Test Codex tool monitor — especially bash directory boundary checking."""
 
 from pathlib import Path
 
 import pytest
 
-from src.claude.tool_authorizer import (
+from src.codex.tool_authorizer import (
     DefaultToolAuthorizer,
     check_bash_directory_boundary,
 )

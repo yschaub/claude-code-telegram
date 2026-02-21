@@ -16,9 +16,9 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator, model_vali
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.utils.constants import (
-    DEFAULT_CLAUDE_MAX_COST_PER_USER,
-    DEFAULT_CLAUDE_MAX_TURNS,
-    DEFAULT_CLAUDE_TIMEOUT_SECONDS,
+    DEFAULT_CODEX_MAX_COST_PER_USER,
+    DEFAULT_CODEX_MAX_TURNS,
+    DEFAULT_CODEX_TIMEOUT_SECONDS,
     DEFAULT_DATABASE_URL,
     DEFAULT_MAX_SESSIONS_PER_USER,
     DEFAULT_RATE_LIMIT_BURST,
@@ -65,12 +65,12 @@ class Settings(BaseSettings):
     codex_cli_path: Optional[str] = Field(
         None,
         description="Path to Codex CLI executable",
-        validation_alias=AliasChoices("CODEX_CLI_PATH", "CLAUDE_CLI_PATH"),
+        validation_alias=AliasChoices("CODEX_CLI_PATH"),
     )
     codex_model: Optional[str] = Field(
         None,
         description="Codex model to use (optional; uses CLI default when unset)",
-        validation_alias=AliasChoices("CODEX_MODEL", "CLAUDE_MODEL"),
+        validation_alias=AliasChoices("CODEX_MODEL"),
     )
     codex_home: Optional[Path] = Field(
         None,
@@ -93,27 +93,23 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("CODEX_FULL_AUTO"),
     )
     codex_max_turns: int = Field(
-        DEFAULT_CLAUDE_MAX_TURNS,
+        DEFAULT_CODEX_MAX_TURNS,
         description="Max conversation turns",
-        validation_alias=AliasChoices("CODEX_MAX_TURNS", "CLAUDE_MAX_TURNS"),
+        validation_alias=AliasChoices("CODEX_MAX_TURNS"),
     )
     codex_timeout_seconds: int = Field(
-        DEFAULT_CLAUDE_TIMEOUT_SECONDS,
+        DEFAULT_CODEX_TIMEOUT_SECONDS,
         description="Codex timeout",
-        validation_alias=AliasChoices(
-            "CODEX_TIMEOUT_SECONDS", "CLAUDE_TIMEOUT_SECONDS"
-        ),
+        validation_alias=AliasChoices("CODEX_TIMEOUT_SECONDS"),
     )
     codex_max_cost_per_user: float = Field(
-        DEFAULT_CLAUDE_MAX_COST_PER_USER,
+        DEFAULT_CODEX_MAX_COST_PER_USER,
         description="Max cost per user",
-        validation_alias=AliasChoices(
-            "CODEX_MAX_COST_PER_USER", "CLAUDE_MAX_COST_PER_USER"
-        ),
+        validation_alias=AliasChoices("CODEX_MAX_COST_PER_USER"),
     )
     # NOTE: When changing this list, also update docs/tools.md,
     # docs/configuration.md, .env.example,
-    # src/claude/facade.py (_get_admin_instructions),
+    # src/codex/facade.py (_get_admin_instructions),
     # and src/bot/orchestrator.py (_TOOL_ICONS).
     codex_allowed_tools: Optional[List[str]] = Field(
         default=[
@@ -135,14 +131,12 @@ class Settings(BaseSettings):
             "WebSearch",
         ],
         description="List of allowed Codex tools",
-        validation_alias=AliasChoices("CODEX_ALLOWED_TOOLS", "CLAUDE_ALLOWED_TOOLS"),
+        validation_alias=AliasChoices("CODEX_ALLOWED_TOOLS"),
     )
     codex_disallowed_tools: Optional[List[str]] = Field(
         default=[],
         description="List of explicitly disallowed Codex tools/commands",
-        validation_alias=AliasChoices(
-            "CODEX_DISALLOWED_TOOLS", "CLAUDE_DISALLOWED_TOOLS"
-        ),
+        validation_alias=AliasChoices("CODEX_DISALLOWED_TOOLS"),
     )
 
     # Sandbox settings

@@ -2,7 +2,7 @@
 
 Telegram's HTML mode only requires escaping 3 characters (<, >, &) vs the many
 ambiguous Markdown v1 metacharacters, making it far more robust for rendering
-Claude's output which contains underscores, asterisks, brackets, etc.
+Codex's output which contains underscores, asterisks, brackets, etc.
 """
 
 import re
@@ -19,7 +19,7 @@ def escape_html(text: str) -> str:
 
 
 def markdown_to_telegram_html(text: str) -> str:
-    """Convert Claude's markdown output to Telegram-compatible HTML.
+    """Convert Codex's markdown output to Telegram-compatible HTML.
 
     Telegram supports a narrow HTML subset: <b>, <i>, <code>, <pre>,
     <a href>, <s>, <u>. This function converts common markdown patterns

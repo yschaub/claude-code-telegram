@@ -23,7 +23,7 @@ __version__ = "0.1.0"
 __author__ = "Richard Atkinson"
 __email__ = "richardatk01@gmail.com"
 __license__ = "MIT"
-__homepage__ = "https://github.com/richardatkinson/claude-code-telegram"
+__homepage__ = "https://github.com/richardatkinson/codex-code-telegram"
 
 # Development status indicators
 __status__ = "Alpha"

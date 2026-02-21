@@ -113,7 +113,7 @@ def check_bash_directory_boundary(
 
 
 class ToolAuthorizer(Protocol):
-    """Protocol used by ClaudeIntegration to authorize tool calls."""
+    """Protocol used by CodexIntegration to authorize tool calls."""
 
     async def validate_tool_call(
         self,

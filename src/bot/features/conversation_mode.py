@@ -13,13 +13,13 @@ Core Components:
 - ConversationContext: Tracks conversation state and metadata
 - ConversationEnhancer: Main class for generating suggestions and formatting responses
 
-The implementation analyzes Claude's responses to generate contextually relevant
+The implementation analyzes Codex's responses to generate contextually relevant
 follow-up suggestions, making it easier for users to continue productive conversations
 with actionable next steps.
 
 Usage:
     enhancer = ConversationEnhancer()
-    enhancer.update_context(user_id, claude_response)
+    enhancer.update_context(user_id, codex_response)
     suggestions = enhancer.generate_follow_up_suggestions(response, context)
     keyboard = enhancer.create_follow_up_keyboard(suggestions)
 """
@@ -30,7 +30,7 @@ from typing import Dict, List, Optional
 import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from ...claude.sdk_integration import ClaudeResponse
+from ...codex.sdk_integration import CodexResponse
 
 logger = structlog.get_logger()
 
@@ -49,8 +49,8 @@ class ConversationContext:
     active_files: List[str] = field(default_factory=list)
     todo_count: int = 0
 
-    def update_from_response(self, response: ClaudeResponse) -> None:
-        """Update context from Claude response."""
+    def update_from_response(self, response: CodexResponse) -> None:
+        """Update context from Codex response."""
         self.session_id = response.session_id
         self.last_response_content = response.content.lower()
         self.conversation_turn += 1
@@ -86,7 +86,7 @@ class ConversationEnhancer:
 
         return self.conversation_contexts[user_id]
 
-    def update_context(self, user_id: int, response: ClaudeResponse) -> None:
+    def update_context(self, user_id: int, response: CodexResponse) -> None:
         """Update conversation context with response."""
         context = self.get_or_create_context(user_id)
         context.update_from_response(response)
@@ -100,7 +100,7 @@ class ConversationEnhancer:
         )
 
     def generate_follow_up_suggestions(
-        self, response: ClaudeResponse, context: ConversationContext
+        self, response: CodexResponse, context: ConversationContext
     ) -> List[str]:
         """Generate relevant follow-up suggestions."""
         suggestions = []
@@ -292,7 +292,7 @@ class ConversationEnhancer:
 
         return InlineKeyboardMarkup(keyboard)
 
-    def should_show_suggestions(self, response: ClaudeResponse) -> bool:
+    def should_show_suggestions(self, response: CodexResponse) -> bool:
         """Determine if follow-up suggestions should be shown."""
         # Don't show suggestions for errors
         if response.is_error:
@@ -326,7 +326,7 @@ class ConversationEnhancer:
 
     def format_response_with_suggestions(
         self,
-        response: ClaudeResponse,
+        response: CodexResponse,
         context: ConversationContext,
         max_content_length: int = 50000,
     ) -> tuple[str, Optional[InlineKeyboardMarkup]]:

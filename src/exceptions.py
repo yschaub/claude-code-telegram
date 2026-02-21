@@ -1,11 +1,11 @@
-"""Custom exceptions for Claude Code Telegram Bot."""
+"""Custom exceptions for Codex Code Telegram Bot."""
 
 
-class ClaudeCodeTelegramError(Exception):
-    """Base exception for Claude Code Telegram Bot."""
+class CodexCodeTelegramError(Exception):
+    """Base exception for Codex Code Telegram Bot."""
 
 
-class ConfigurationError(ClaudeCodeTelegramError):
+class ConfigurationError(CodexCodeTelegramError):
     """Configuration-related errors."""
 
 
@@ -17,7 +17,7 @@ class InvalidConfigError(ConfigurationError):
     """Configuration is invalid."""
 
 
-class SecurityError(ClaudeCodeTelegramError):
+class SecurityError(CodexCodeTelegramError):
     """Security-related errors."""
 
 
@@ -33,23 +33,23 @@ class DirectoryTraversalError(SecurityError):
     """Directory traversal attempt detected."""
 
 
-class ClaudeError(ClaudeCodeTelegramError):
-    """Claude Code-related errors."""
+class CodexError(CodexCodeTelegramError):
+    """Codex Code-related errors."""
 
 
-class ClaudeTimeoutError(ClaudeError):
-    """Claude Code operation timed out."""
+class CodexTimeoutError(CodexError):
+    """Codex Code operation timed out."""
 
 
-class ClaudeProcessError(ClaudeError):
-    """Claude Code process execution failed."""
+class CodexProcessError(CodexError):
+    """Codex Code process execution failed."""
 
 
-class ClaudeParsingError(ClaudeError):
-    """Failed to parse Claude Code output."""
+class CodexParsingError(CodexError):
+    """Failed to parse Codex Code output."""
 
 
-class StorageError(ClaudeCodeTelegramError):
+class StorageError(CodexCodeTelegramError):
     """Storage-related errors."""
 
 
@@ -61,7 +61,7 @@ class DataIntegrityError(StorageError):
     """Data integrity check failed."""
 
 
-class TelegramError(ClaudeCodeTelegramError):
+class TelegramError(CodexCodeTelegramError):
     """Telegram API-related errors."""
 
 

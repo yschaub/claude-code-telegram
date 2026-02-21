@@ -20,7 +20,7 @@ class _MockProcess:
 
 @pytest.mark.asyncio
 async def test_runtime_health_reports_missing_cli():
-    bot_data = {"claude_integration": SimpleNamespace(sdk_manager=SimpleNamespace(codex_path=None))}
+    bot_data = {"codex_integration": SimpleNamespace(sdk_manager=SimpleNamespace(codex_path=None))}
     health = await get_codex_runtime_health(bot_data)
     assert health["cli"] == "missing"
     assert health["auth"] == "unknown"
@@ -29,7 +29,7 @@ async def test_runtime_health_reports_missing_cli():
 @pytest.mark.asyncio
 async def test_runtime_health_reports_logged_in_and_uses_cache():
     bot_data = {
-        "claude_integration": SimpleNamespace(
+        "codex_integration": SimpleNamespace(
             sdk_manager=SimpleNamespace(codex_path="/usr/bin/codex")
         )
     }
@@ -55,7 +55,7 @@ async def test_runtime_health_reports_logged_in_and_uses_cache():
 @pytest.mark.asyncio
 async def test_runtime_health_reports_not_logged_in():
     bot_data = {
-        "claude_integration": SimpleNamespace(
+        "codex_integration": SimpleNamespace(
             sdk_manager=SimpleNamespace(codex_path="/usr/bin/codex")
         )
     }

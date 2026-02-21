@@ -48,7 +48,7 @@ async def test_command_cd_stays_within_project_root(thread_settings):
         "settings": settings,
         "security_validator": None,
         "audit_logger": None,
-        "claude_integration": AsyncMock(
+        "codex_integration": AsyncMock(
             _find_resumable_session=AsyncMock(return_value=None)
         ),
     }
@@ -75,7 +75,7 @@ async def test_callback_cd_stays_within_project_root(thread_settings):
         "settings": settings,
         "security_validator": None,
         "audit_logger": None,
-        "claude_integration": AsyncMock(
+        "codex_integration": AsyncMock(
             _find_resumable_session=AsyncMock(return_value=None)
         ),
     }

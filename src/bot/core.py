@@ -20,14 +20,14 @@ from telegram.ext import (
 )
 
 from ..config.settings import Settings
-from ..exceptions import ClaudeCodeTelegramError
+from ..exceptions import CodexCodeTelegramError
 from .features.registry import FeatureRegistry
 from .orchestrator import MessageOrchestrator
 
 logger = structlog.get_logger()
 
 
-class ClaudeCodeBot:
+class CodexCodeBot:
     """Main bot orchestrator."""
 
     def __init__(self, settings: Settings, dependencies: Dict[str, Any]):
@@ -211,7 +211,7 @@ class ClaudeCodeBot:
                     await asyncio.sleep(1)
         except Exception as e:
             logger.error("Error running bot", error=str(e))
-            raise ClaudeCodeTelegramError(f"Failed to start bot: {str(e)}") from e
+            raise CodexCodeTelegramError(f"Failed to start bot: {str(e)}") from e
         finally:
             self.is_running = False
 
@@ -242,7 +242,7 @@ class ClaudeCodeBot:
             logger.info("Bot stopped successfully")
         except Exception as e:
             logger.error("Error stopping bot", error=str(e))
-            raise ClaudeCodeTelegramError(f"Failed to stop bot: {str(e)}") from e
+            raise CodexCodeTelegramError(f"Failed to stop bot: {str(e)}") from e
 
     async def _error_handler(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE

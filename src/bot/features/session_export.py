@@ -237,7 +237,7 @@ class SessionExporter:
             border-left: 4px solid #3498db;
             background-color: #f9f9f9;
         }}
-        .message.claude {{
+        .message.codex {{
             border-left-color: #2ecc71;
         }}
         .timestamp {{

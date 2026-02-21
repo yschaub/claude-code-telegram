@@ -9,27 +9,27 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 import structlog
 
 from ..config.settings import Settings
-from .exceptions import ClaudeProcessError
-from .sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
+from .exceptions import CodexProcessError
+from .sdk_integration import CodexResponse, CodexSDKManager, StreamUpdate
 from .session import SessionManager
 from .tool_authorizer import ToolAuthorizer
 
 logger = structlog.get_logger()
 
 
-class ClaudeIntegration:
+class CodexIntegration:
     """Main integration point for Codex."""
 
     def __init__(
         self,
         config: Settings,
-        sdk_manager: Optional[ClaudeSDKManager] = None,
+        sdk_manager: Optional[CodexSDKManager] = None,
         session_manager: Optional[SessionManager] = None,
         tool_authorizer: Optional[ToolAuthorizer] = None,
     ):
-        """Initialize Claude integration facade."""
+        """Initialize Codex integration facade."""
         self.config = config
-        self.sdk_manager = sdk_manager or ClaudeSDKManager(config)
+        self.sdk_manager = sdk_manager or CodexSDKManager(config)
         self.session_manager = session_manager
         self.tool_authorizer = tool_authorizer
 
@@ -41,7 +41,7 @@ class ClaudeIntegration:
         session_id: Optional[str] = None,
         on_stream: Optional[Callable[[StreamUpdate], None]] = None,
         force_new: bool = False,
-    ) -> ClaudeResponse:
+    ) -> CodexResponse:
         """Run Codex command with full integration."""
         logger.info(
             "Running Codex command",
@@ -93,24 +93,24 @@ class ClaudeIntegration:
             should_continue = not is_new and bool(session.session_id)
 
             # For new sessions, don't pass session_id to Codex
-            claude_session_id = session.session_id if should_continue else None
+            codex_session_id = session.session_id if should_continue else None
 
             try:
                 response = await self._execute(
                     prompt=prompt,
                     working_directory=working_directory,
-                    session_id=claude_session_id,
+                    session_id=codex_session_id,
                     continue_session=should_continue,
                     stream_callback=stream_handler,
                     can_use_tool=can_use_tool,
                 )
             except Exception as resume_error:
-                # If resume failed (e.g., session expired on Claude's side),
+                # If resume failed (e.g., session expired on Codex's side),
                 # retry as a fresh session
                 if should_continue and self._should_retry_fresh_session(resume_error):
                     logger.warning(
                         "Session resume failed, starting fresh session",
-                        failed_session_id=claude_session_id,
+                        failed_session_id=codex_session_id,
                         error=str(resume_error),
                     )
                     # Clean up the stale session
@@ -185,7 +185,7 @@ class ClaudeIntegration:
         if any(marker in msg for marker in retryable_markers):
             return True
 
-        return isinstance(error, ClaudeProcessError)
+        return isinstance(error, CodexProcessError)
 
     async def _execute(
         self,
@@ -197,7 +197,7 @@ class ClaudeIntegration:
         can_use_tool: Optional[
             Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
         ] = None,
-    ) -> ClaudeResponse:
+    ) -> CodexResponse:
         """Execute command via SDK."""
         return await self.sdk_manager.execute_command(
             prompt=prompt,
@@ -212,7 +212,7 @@ class ClaudeIntegration:
         self,
         user_id: int,
         working_directory: Path,
-    ) -> Optional["ClaudeSession"]:  # noqa: F821
+    ) -> Optional["CodexSession"]:  # noqa: F821
         """Find the most recent resumable session for a user in a directory.
 
         Returns the session if one exists that is non-expired and has a real
@@ -240,7 +240,7 @@ class ClaudeIntegration:
         working_directory: Path,
         prompt: Optional[str] = None,
         on_stream: Optional[Callable[[StreamUpdate], None]] = None,
-    ) -> Optional[ClaudeResponse]:
+    ) -> Optional[CodexResponse]:
         """Continue the most recent session."""
         logger.info(
             "Continuing session",
@@ -267,7 +267,7 @@ class ClaudeIntegration:
         latest_session = max(matching_sessions, key=lambda s: s.last_used)
 
         # Continue session with default prompt if none provided
-        # Claude CLI requires a prompt, so we use a placeholder
+        # Codex CLI requires a prompt, so we use a placeholder
         return await self.run_command(
             prompt=prompt or "Please continue where we left off",
             working_directory=working_directory,

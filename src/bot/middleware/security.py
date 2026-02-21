@@ -40,7 +40,7 @@ async def security_middleware(
         # Continue without validation (log error but don't block)
         return await handler(event, data)
 
-    # In agentic mode, user text is a prompt to Claude — not a command.
+    # In agentic mode, user text is a prompt to Codex — not a command.
     # Skip input validation so natural conversation (backticks, paths, etc.) works.
     settings = data.get("settings")
     agentic_mode = getattr(settings, "agentic_mode", False) if settings else False

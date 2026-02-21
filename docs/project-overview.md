@@ -1,28 +1,28 @@
-# Claude Code Telegram Bot -- Project Overview
+# Codex Code Telegram Bot -- Project Overview
 
 ## Project Description
 
-A Telegram bot that provides remote access to Claude Code, allowing developers to interact with their projects from anywhere. The default interaction model is **agentic mode** -- a conversational interface where users chat naturally with Claude. A classic terminal-like mode with 13 commands is also available.
+A Telegram bot that provides remote access to Codex Code, allowing developers to interact with their projects from anywhere. The default interaction model is **agentic mode** -- a conversational interface where users chat naturally with Codex. A classic terminal-like mode with 13 commands is also available.
 
 ## Core Objectives
 
-1. **Remote Development Access**: Enable developers to use Claude Code from any device with Telegram
+1. **Remote Development Access**: Enable developers to use Codex Code from any device with Telegram
 2. **Security-First Design**: Implement robust security boundaries to prevent unauthorized access
 3. **Conversational Interface**: Natural language interaction as the primary mode (agentic mode)
-4. **Session Persistence**: Maintain Claude Code context across conversations and project switches
+4. **Session Persistence**: Maintain Codex Code context across conversations and project switches
 5. **Event-Driven Automation**: Support webhooks, scheduled jobs, and proactive notifications
 
 ## Target Users
 
 - Developers who need coding assistance while mobile
-- Teams wanting shared Claude Code access
+- Teams wanting shared Codex Code access
 - Users who prefer chat-based interfaces for development tasks
 - Developers managing multiple projects remotely
 
 ## Key Features
 
 ### Agentic Mode (Default)
-- Natural language conversation with Claude -- no commands needed
+- Natural language conversation with Codex -- no commands needed
 - Minimal command set: `/start`, `/new`, `/status`
 - Automatic session persistence per user/project directory
 - File and image upload support
@@ -40,8 +40,8 @@ A Telegram bot that provides remote access to Claude Code, allowing developers t
 - **Job Scheduler**: APScheduler cron jobs with persistent storage
 - **Notifications**: Rate-limited Telegram delivery for agent responses
 
-### Claude Code Integration
-- Full Claude Code SDK integration (CLI fallback)
+### Codex Code Integration
+- Full Codex Code SDK integration (CLI fallback)
 - Session management per user/project
 - Tool usage visibility
 - Cost tracking and limits
@@ -69,7 +69,7 @@ A Telegram bot that provides remote access to Claude Code, allowing developers t
    - User verification, token management, permission checking
    - Input validation and security middleware
 
-4. **Claude Integration** (`src/claude/`)
+4. **Codex Integration** (`src/codex/`)
    - SDK and CLI backends via facade pattern
    - Session state management and auto-resume
 
@@ -79,7 +79,7 @@ A Telegram bot that provides remote access to Claude Code, allowing developers t
 
 6. **Event Bus** (`src/events/`)
    - Async pub/sub with typed subscriptions
-   - AgentHandler bridges events to Claude
+   - AgentHandler bridges events to Codex
    - EventSecurityMiddleware validates events
 
 7. **Webhook API** (`src/api/`)
@@ -99,12 +99,12 @@ A Telegram bot that provides remote access to Claude Code, allowing developers t
 **Agentic mode (direct messages):**
 ```
 User Message -> Telegram -> Middleware Chain -> MessageOrchestrator
-    -> ClaudeIntegration.run_command() -> Response -> Telegram
+    -> CodexIntegration.run_command() -> Response -> Telegram
 ```
 
 **External triggers (webhooks/scheduler):**
 ```
-Webhook/Cron -> EventBus -> AgentHandler -> ClaudeIntegration
+Webhook/Cron -> EventBus -> AgentHandler -> CodexIntegration
     -> AgentResponseEvent -> NotificationService -> Telegram
 ```
 

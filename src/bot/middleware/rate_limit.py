@@ -88,7 +88,7 @@ def estimate_message_cost(event: Any) -> float:
     sophisticated cost estimation based on:
     - Message type (text, file, command)
     - Content complexity
-    - Expected Claude usage
+    - Expected Codex usage
     """
     message = event.effective_message
     message_text = (message.text or "") if message else ""

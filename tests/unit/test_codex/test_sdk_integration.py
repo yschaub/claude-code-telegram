@@ -7,12 +7,12 @@ from unittest.mock import patch
 
 import pytest
 
-from src.claude.exceptions import (
-    ClaudeProcessError,
-    ClaudeTimeoutError,
-    ClaudeToolValidationError,
+from src.codex.exceptions import (
+    CodexProcessError,
+    CodexTimeoutError,
+    CodexToolValidationError,
 )
-from src.claude.sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
+from src.codex.sdk_integration import CodexResponse, CodexSDKManager, StreamUpdate
 from src.config.settings import Settings
 
 
@@ -57,13 +57,13 @@ def config(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def manager(config: Settings) -> ClaudeSDKManager:
-    with patch("src.claude.sdk_integration.find_codex_cli", return_value="/usr/bin/codex"):
-        return ClaudeSDKManager(config)
+def manager(config: Settings) -> CodexSDKManager:
+    with patch("src.codex.sdk_integration.find_codex_cli", return_value="/usr/bin/codex"):
+        return CodexSDKManager(config)
 
 
-class TestClaudeSDKManager:
-    async def test_execute_command_success(self, manager: ClaudeSDKManager):
+class TestCodexSDKManager:
+    async def test_execute_command_success(self, manager: CodexSDKManager):
         called_cmd = []
 
         async def _create_process(*cmd, **kwargs):
@@ -77,7 +77,7 @@ class TestClaudeSDKManager:
             return _MockProcess(stdout_lines=stdout_lines, returncode=0)
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             response = await manager.execute_command(
@@ -85,7 +85,7 @@ class TestClaudeSDKManager:
                 working_directory=Path("/tmp"),
             )
 
-        assert isinstance(response, ClaudeResponse)
+        assert isinstance(response, CodexResponse)
         assert response.session_id == "thread-123"
         assert "--output-last-message" not in called_cmd
         assert "--full-auto" in called_cmd
@@ -96,7 +96,7 @@ class TestClaudeSDKManager:
         assert response.cost == 0.0
         assert any(tool.get("name") == "Bash" for tool in response.tools_used)
 
-    async def test_execute_command_resume_session(self, manager: ClaudeSDKManager):
+    async def test_execute_command_resume_session(self, manager: CodexSDKManager):
         called_cmd = []
 
         async def _create_process(*cmd, **kwargs):
@@ -112,7 +112,7 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             response = await manager.execute_command(
@@ -137,7 +137,7 @@ class TestClaudeSDKManager:
         assert response.content == "continued"
 
     async def test_execute_command_extracts_completed_response_text(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             payload = {
@@ -161,7 +161,7 @@ class TestClaudeSDKManager:
             return _MockProcess(stdout_lines=stdout_lines, returncode=0)
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             response = await manager.execute_command(
@@ -172,7 +172,7 @@ class TestClaudeSDKManager:
         assert response.content == "I can see repositories in this directory."
 
     async def test_execute_command_resume_strips_sandbox_extra_args(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         manager.config.codex_extra_args = ["--sandbox", "workspace-write", "--search"]
         called_cmd = []
@@ -190,7 +190,7 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             await manager.execute_command(
@@ -205,7 +205,7 @@ class TestClaudeSDKManager:
         assert "--output-last-message" not in called_cmd
 
     async def test_execute_command_applies_max_budget_config(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         manager.config.codex_max_budget_usd = 0.25
         called_cmd = []
@@ -218,7 +218,7 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             await manager.execute_command(
@@ -229,7 +229,7 @@ class TestClaudeSDKManager:
         assert "-c" in called_cmd
         assert "max_budget_usd=0.25" in called_cmd
 
-    async def test_execute_command_stream_callback(self, manager: ClaudeSDKManager):
+    async def test_execute_command_stream_callback(self, manager: CodexSDKManager):
         updates = []
 
         async def _stream_callback(update: StreamUpdate):
@@ -244,7 +244,7 @@ class TestClaudeSDKManager:
             return _MockProcess(stdout_lines=stdout_lines, returncode=0)
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             await manager.execute_command(
@@ -257,7 +257,7 @@ class TestClaudeSDKManager:
         assert any(update.tool_calls for update in updates)
 
     async def test_execute_command_blocks_tool_with_can_use_tool_callback(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             stdout_lines = [
@@ -274,10 +274,10 @@ class TestClaudeSDKManager:
             return False, "Tool policy blocked this operation."
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
-            with pytest.raises(ClaudeToolValidationError) as exc_info:
+            with pytest.raises(CodexToolValidationError) as exc_info:
                 await manager.execute_command(
                     prompt="delete temp dir",
                     working_directory=Path("/tmp"),
@@ -288,7 +288,7 @@ class TestClaudeSDKManager:
         assert callback_calls
         assert callback_calls[0][0] == "Bash"
 
-    async def test_execute_command_not_logged_in_error(self, manager: ClaudeSDKManager):
+    async def test_execute_command_not_logged_in_error(self, manager: CodexSDKManager):
         async def _create_process(*cmd, **kwargs):
             return _MockProcess(
                 stdout_lines=[],
@@ -297,10 +297,10 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
-            with pytest.raises(ClaudeProcessError) as exc_info:
+            with pytest.raises(CodexProcessError) as exc_info:
                 await manager.execute_command(
                     prompt="hello",
                     working_directory=Path("/tmp"),
@@ -309,7 +309,7 @@ class TestClaudeSDKManager:
         assert "not logged in" in str(exc_info.value).lower()
 
     async def test_execute_command_no_last_message_warning_is_nonfatal(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             return _MockProcess(
@@ -321,7 +321,7 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             response = await manager.execute_command(
@@ -332,7 +332,7 @@ class TestClaudeSDKManager:
         assert response.content == "partial"
 
     async def test_nonzero_exit_with_assistant_content_is_nonfatal(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             return _MockProcess(
@@ -342,7 +342,7 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             response = await manager.execute_command(
@@ -353,7 +353,7 @@ class TestClaudeSDKManager:
         assert response.content == "hello"
 
     async def test_warning_no_last_message_without_output_does_not_set_new_session(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             return _MockProcess(
@@ -365,7 +365,7 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
             response = await manager.execute_command(
@@ -377,7 +377,7 @@ class TestClaudeSDKManager:
         assert response.session_id == ""
 
     async def test_error_event_message_is_propagated_on_nonzero_exit(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             stdout_lines = [
@@ -388,10 +388,10 @@ class TestClaudeSDKManager:
             return _MockProcess(stdout_lines=stdout_lines, returncode=1)
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
-            with pytest.raises(ClaudeProcessError) as exc_info:
+            with pytest.raises(CodexProcessError) as exc_info:
                 await manager.execute_command(
                     prompt="hello",
                     working_directory=Path("/tmp"),
@@ -400,7 +400,7 @@ class TestClaudeSDKManager:
         assert "approval required" in str(exc_info.value).lower()
 
     async def test_event_error_takes_precedence_over_stderr_on_nonzero_exit(
-        self, manager: ClaudeSDKManager
+        self, manager: CodexSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
             stdout_lines = [
@@ -416,10 +416,10 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
-            with pytest.raises(ClaudeProcessError) as exc_info:
+            with pytest.raises(CodexProcessError) as exc_info:
                 await manager.execute_command(
                     prompt="hello",
                     working_directory=Path("/tmp"),
@@ -429,7 +429,7 @@ class TestClaudeSDKManager:
         assert "401 unauthorized" in error_message
         assert "missing bearer" in error_message
 
-    async def test_execute_command_timeout(self, manager: ClaudeSDKManager):
+    async def test_execute_command_timeout(self, manager: CodexSDKManager):
         # Make timeout short so test stays fast.
         manager.config.codex_timeout_seconds = 1
 
@@ -442,20 +442,20 @@ class TestClaudeSDKManager:
             )
 
         with patch(
-            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            "src.codex.sdk_integration.asyncio.create_subprocess_exec",
             side_effect=_create_process,
         ):
-            with pytest.raises(ClaudeTimeoutError):
+            with pytest.raises(CodexTimeoutError):
                 await manager.execute_command(
                     prompt="slow request",
                     working_directory=Path("/tmp"),
                 )
 
-    def test_get_active_process_count(self, manager: ClaudeSDKManager):
+    def test_get_active_process_count(self, manager: CodexSDKManager):
         assert manager.get_active_process_count() == 0
 
     def test_build_environment_drops_blank_auth_env_vars(
-        self, manager: ClaudeSDKManager, monkeypatch: pytest.MonkeyPatch
+        self, manager: CodexSDKManager, monkeypatch: pytest.MonkeyPatch
     ):
         monkeypatch.setenv("CODEX_HOME", "")
         monkeypatch.setenv("OPENAI_API_KEY", "")
@@ -470,7 +470,7 @@ class TestClaudeSDKManager:
         assert "OPENAI_API_BASE" not in env
 
     def test_build_environment_sets_codex_home_from_config(
-        self, manager: ClaudeSDKManager, tmp_path: Path
+        self, manager: CodexSDKManager, tmp_path: Path
     ):
         manager.config.codex_home = tmp_path / "codex-home"
         env = manager._build_environment()

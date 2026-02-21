@@ -1,4 +1,4 @@
-"""Claude Code session management.
+"""Codex Code session management.
 
 Features:
 - Session state tracking
@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Protocol
 import structlog
 
 from ..config.settings import Settings
-from .sdk_integration import ClaudeResponse
+from .sdk_integration import CodexResponse
 
 logger = structlog.get_logger()
 
@@ -32,8 +32,8 @@ def _to_utc(dt: datetime) -> datetime:
 
 
 @dataclass
-class ClaudeSession:
-    """Claude Code session state."""
+class CodexSession:
+    """Codex Code session state."""
 
     session_id: str
     user_id: int
@@ -44,14 +44,14 @@ class ClaudeSession:
     total_turns: int = 0
     message_count: int = 0
     tools_used: List[str] = field(default_factory=list)
-    is_new_session: bool = False  # True if session hasn't been sent to Claude Code yet
+    is_new_session: bool = False  # True if session hasn't been sent to Codex Code yet
 
     def is_expired(self, timeout_hours: int) -> bool:
         """Check if session has expired."""
         age = datetime.now(UTC) - _to_utc(self.last_used)
         return age > timedelta(hours=timeout_hours)
 
-    def update_usage(self, response: ClaudeResponse) -> None:
+    def update_usage(self, response: CodexResponse) -> None:
         """Update session with usage from response."""
         self.last_used = _to_utc(datetime.now(UTC))
         self.total_cost += response.cost
@@ -80,7 +80,7 @@ class ClaudeSession:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "ClaudeSession":
+    def from_dict(cls, data: Dict) -> "CodexSession":
         """Create session from dictionary."""
         return cls(
             session_id=data["session_id"],
@@ -98,37 +98,37 @@ class ClaudeSession:
 class SessionStorageProtocol(Protocol):
     """Storage contract required by SessionManager."""
 
-    async def save_session(self, session: ClaudeSession) -> None:
+    async def save_session(self, session: CodexSession) -> None:
         """Persist session."""
 
-    async def load_session(self, session_id: str) -> Optional[ClaudeSession]:
+    async def load_session(self, session_id: str) -> Optional[CodexSession]:
         """Load session by ID."""
 
     async def delete_session(self, session_id: str) -> None:
         """Delete/deactivate session by ID."""
 
-    async def get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+    async def get_user_sessions(self, user_id: int) -> List[CodexSession]:
         """Get sessions for a user."""
 
-    async def get_all_sessions(self) -> List[ClaudeSession]:
+    async def get_all_sessions(self) -> List[CodexSession]:
         """Get all active sessions."""
 
 
 class SessionManager:
-    """Manage Claude Code sessions."""
+    """Manage Codex Code sessions."""
 
     def __init__(self, config: Settings, storage: SessionStorageProtocol):
         """Initialize session manager."""
         self.config = config
         self.storage = storage
-        self.active_sessions: Dict[str, ClaudeSession] = {}
+        self.active_sessions: Dict[str, CodexSession] = {}
 
     async def get_or_create_session(
         self,
         user_id: int,
         project_path: Path,
         session_id: Optional[str] = None,
-    ) -> ClaudeSession:
+    ) -> CodexSession:
         """Get existing session or create new one."""
         logger.info(
             "Getting or creating session",
@@ -164,8 +164,8 @@ class SessionManager:
                 user_id=user_id,
             )
 
-        # Create session with empty ID — Claude will provide the real one
-        new_session = ClaudeSession(
+        # Create session with empty ID — Codex will provide the real one
+        new_session = CodexSession(
             session_id="",
             user_id=user_id,
             project_path=project_path,
@@ -174,11 +174,11 @@ class SessionManager:
             is_new_session=True,
         )
 
-        # Don't save to storage yet — deferred until after Claude responds
+        # Don't save to storage yet — deferred until after Codex responds
         # with a real session_id (via update_session)
 
         logger.info(
-            "Created new session (pending Claude session ID)",
+            "Created new session (pending Codex session ID)",
             user_id=user_id,
             project_path=str(project_path),
         )
@@ -186,21 +186,21 @@ class SessionManager:
         return new_session
 
     async def update_session(
-        self, session: ClaudeSession, response: ClaudeResponse
+        self, session: CodexSession, response: CodexResponse
     ) -> None:
         """Update session with response data.
 
-        For new sessions: assigns the real session_id from Claude's response,
+        For new sessions: assigns the real session_id from Codex's response,
         then persists to storage and adds to active_sessions.
         For existing sessions: updates usage and re-persists.
         """
         if session.is_new_session:
-            # Assign the real session ID from Claude
+            # Assign the real session ID from Codex
             if response.session_id:
                 session.session_id = response.session_id
             else:
                 logger.warning(
-                    "Claude returned no session_id for new session; "
+                    "Codex returned no session_id for new session; "
                     "session will not be resumable",
                     user_id=session.user_id,
                     project_path=str(session.project_path),
@@ -208,7 +208,7 @@ class SessionManager:
             session.is_new_session = False
 
             logger.info(
-                "New session assigned Claude session ID",
+                "New session assigned Codex session ID",
                 session_id=session.session_id,
             )
 
@@ -249,7 +249,7 @@ class SessionManager:
         logger.info("Session cleanup completed", expired_sessions=expired_count)
         return expired_count
 
-    async def _get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+    async def _get_user_sessions(self, user_id: int) -> List[CodexSession]:
         """Get all sessions for a user."""
         return await self.storage.get_user_sessions(user_id)
 

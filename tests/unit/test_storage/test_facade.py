@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.claude.sdk_integration import ClaudeResponse
+from src.codex.sdk_integration import CodexResponse
 from src.storage.facade import Storage
 
 
@@ -59,16 +59,16 @@ class TestStorageFacade:
         updated_user = await storage.users.get_user(12346)
         assert updated_user.session_count == 1
 
-    async def test_save_claude_interaction(self, storage):
-        """Test saving Claude interaction."""
+    async def test_save_codex_interaction(self, storage):
+        """Test saving Codex interaction."""
         # Setup user and session
-        await storage.get_or_create_user(12347, "claudeuser")
-        await storage.create_session(12347, "/test/claude", "claude-session")
+        await storage.get_or_create_user(12347, "codexuser")
+        await storage.create_session(12347, "/test/codex", "codex-session")
 
-        # Create Claude response
-        claude_response = ClaudeResponse(
+        # Create Codex response
+        codex_response = CodexResponse(
             content="Test response content",
-            session_id="claude-session",
+            session_id="codex-session",
             cost=0.05,
             duration_ms=1500,
             num_turns=1,
@@ -76,23 +76,23 @@ class TestStorageFacade:
         )
 
         # Save interaction
-        await storage.save_claude_interaction(
+        await storage.save_codex_interaction(
             user_id=12347,
-            session_id="claude-session",
+            session_id="codex-session",
             prompt="Test prompt",
-            response=claude_response,
+            response=codex_response,
         )
 
         # Verify data was saved
         # Check message was saved
-        messages = await storage.messages.get_session_messages("claude-session")
+        messages = await storage.messages.get_session_messages("codex-session")
         assert len(messages) == 1
         assert messages[0].prompt == "Test prompt"
         assert messages[0].response == "Test response content"
         assert messages[0].cost == 0.05
 
         # Check tool usage was saved
-        tool_usage = await storage.tools.get_session_tool_usage("claude-session")
+        tool_usage = await storage.tools.get_session_tool_usage("codex-session")
         assert len(tool_usage) == 1
         assert tool_usage[0].tool_name == "Read"
 
@@ -102,7 +102,7 @@ class TestStorageFacade:
         assert updated_user.message_count == 1
 
         # Check session stats were updated
-        updated_session = await storage.sessions.get_session("claude-session")
+        updated_session = await storage.sessions.get_session("codex-session")
         assert updated_session.total_cost == 0.05
         assert updated_session.message_count == 1
         assert updated_session.total_turns == 1
@@ -130,7 +130,7 @@ class TestStorageFacade:
             await storage.create_session(12350, f"/test/project{i}", f"session-{i}")
 
             # Add some activity
-            claude_response = ClaudeResponse(
+            codex_response = CodexResponse(
                 content=f"Response {i}",
                 session_id=f"session-{i}",
                 cost=0.1,
@@ -138,11 +138,11 @@ class TestStorageFacade:
                 num_turns=1,
             )
 
-            await storage.save_claude_interaction(
+            await storage.save_codex_interaction(
                 user_id=12350,
                 session_id=f"session-{i}",
                 prompt=f"Prompt {i}",
-                response=claude_response,
+                response=codex_response,
             )
 
         # Get summary
@@ -163,7 +163,7 @@ class TestStorageFacade:
 
         # Add some messages
         for i in range(2):
-            claude_response = ClaudeResponse(
+            codex_response = CodexResponse(
                 content=f"Response {i}",
                 session_id="history-session",
                 cost=0.05,
@@ -172,11 +172,11 @@ class TestStorageFacade:
                 tools_used=[{"name": "Read", "input": {}}] if i == 0 else [],
             )
 
-            await storage.save_claude_interaction(
+            await storage.save_codex_interaction(
                 user_id=12351,
                 session_id="history-session",
                 prompt=f"Prompt {i}",
-                response=claude_response,
+                response=codex_response,
             )
 
         # Get history
@@ -237,7 +237,7 @@ class TestStorageFacade:
         await storage.create_session(12354, "/test/dashboard", "dashboard-session")
 
         # Add some activity
-        claude_response = ClaudeResponse(
+        codex_response = CodexResponse(
             content="Dashboard response",
             session_id="dashboard-session",
             cost=0.1,
@@ -245,11 +245,11 @@ class TestStorageFacade:
             num_turns=1,
         )
 
-        await storage.save_claude_interaction(
+        await storage.save_codex_interaction(
             user_id=12354,
             session_id="dashboard-session",
             prompt="Dashboard prompt",
-            response=claude_response,
+            response=codex_response,
         )
 
         # Get dashboard
@@ -266,7 +266,7 @@ class TestStorageFacade:
         await storage.get_or_create_user(12355, "adminuser")
         await storage.create_session(12355, "/test/admin", "admin-session")
 
-        claude_response = ClaudeResponse(
+        codex_response = CodexResponse(
             content="Admin response",
             session_id="admin-session",
             cost=0.1,
@@ -274,11 +274,11 @@ class TestStorageFacade:
             num_turns=1,
         )
 
-        await storage.save_claude_interaction(
+        await storage.save_codex_interaction(
             user_id=12355,
             session_id="admin-session",
             prompt="Admin prompt",
-            response=claude_response,
+            response=codex_response,
         )
 
         # Get admin dashboard

@@ -1,1 +1,1 @@
-"""Telegram bot module for Claude Code integration."""
+"""Telegram bot module for Codex Code integration."""

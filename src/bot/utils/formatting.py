@@ -24,7 +24,7 @@ class FormattedMessage:
 
 
 class ResponseFormatter:
-    """Format Claude responses for Telegram display."""
+    """Format Codex responses for Telegram display."""
 
     def __init__(self, settings: Settings):
         """Initialize formatter with settings."""
@@ -34,7 +34,7 @@ class ResponseFormatter:
             15000  # Max length for individual code blocks before splitting
         )
 
-    def format_claude_response(
+    def format_codex_response(
         self, text: str, context: Optional[dict] = None
     ) -> List[FormattedMessage]:
         """Enhanced formatting with context awareness and semantic chunking."""

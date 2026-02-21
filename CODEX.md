@@ -1,10 +1,10 @@
-# CLAUDE.md
+# CODEX.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex Code (codex.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Telegram bot providing remote access to Claude Code. Python 3.10+, built with Poetry, using `python-telegram-bot` for Telegram and `claude-agent-sdk` for Claude Code integration.
+Telegram bot providing remote access to Codex Code. Python 3.10+, built with Poetry, using `python-telegram-bot` for Telegram and `codex-agent-sdk` for Codex Code integration.
 
 ## Commands
 
@@ -26,9 +26,9 @@ poetry run mypy src
 
 ## Architecture
 
-### Claude SDK Integration
+### Codex SDK Integration
 
-`ClaudeIntegration` (facade in `src/claude/facade.py`) wraps `ClaudeSDKManager` (`src/claude/sdk_integration.py`), which uses `claude-agent-sdk` with `ClaudeSDKClient` for async streaming. Session IDs come from Claude's `ResultMessage`, not generated locally.
+`CodexIntegration` (facade in `src/codex/facade.py`) wraps `CodexSDKManager` (`src/codex/sdk_integration.py`), which uses `codex-agent-sdk` with `CodexSDKClient` for async streaming. Session IDs come from Codex's `ResultMessage`, not generated locally.
 
 Sessions auto-resume: per user+directory, persisted in SQLite.
 
@@ -39,7 +39,7 @@ Sessions auto-resume: per user+directory, persisted in SQLite.
 ```
 Telegram message -> Security middleware (group -3) -> Auth middleware (group -2)
 -> Rate limit (group -1) -> MessageOrchestrator.agentic_text() (group 10)
--> ClaudeIntegration.run_command() -> SDK
+-> CodexIntegration.run_command() -> SDK
 -> Response parsed -> Stored in SQLite -> Sent back to Telegram
 ```
 
@@ -48,7 +48,7 @@ Telegram message -> Security middleware (group -3) -> Auth middleware (group -2)
 ```
 Webhook POST /webhooks/{provider} -> Signature verification -> Deduplication
 -> Publish WebhookEvent to EventBus -> AgentHandler.handle_webhook()
--> ClaudeIntegration.run_command() -> Publish AgentResponseEvent
+-> CodexIntegration.run_command() -> Publish AgentResponseEvent
 -> NotificationService -> Rate-limited Telegram delivery
 ```
 
@@ -59,7 +59,7 @@ Webhook POST /webhooks/{provider} -> Signature verification -> Deduplication
 Bot handlers access dependencies via `context.bot_data`:
 ```python
 context.bot_data["auth_manager"]
-context.bot_data["claude_integration"]
+context.bot_data["codex_integration"]
 context.bot_data["storage"]
 context.bot_data["security_validator"]
 ```
@@ -71,7 +71,7 @@ context.bot_data["security_validator"]
 - `src/bot/middleware/` -- Auth, rate limit, security input validation
 - `src/bot/features/` -- Git integration, file handling, quick actions, session export
 - `src/bot/orchestrator.py` -- MessageOrchestrator: routes to agentic or classic handlers, project-topic routing
-- `src/claude/` -- Claude integration facade, SDK/CLI managers, session management, tool monitoring
+- `src/codex/` -- Codex integration facade, SDK/CLI managers, session management, tool monitoring
 - `src/projects/` -- Multi-project support: `registry.py` (YAML project config), `thread_manager.py` (Telegram topic sync/routing)
 - `src/storage/` -- SQLite via aiosqlite, repository pattern (users, sessions, messages, tool_usage, audit_log, cost_tracking, project_threads)
 - `src/security/` -- Multi-provider auth (whitelist + token), input validators (with optional `disable_security_patterns`), rate limiter, audit logging
@@ -86,7 +86,7 @@ context.bot_data["security_validator"]
 
 `SecurityValidator` blocks access to secrets (`.env`, `.ssh`, `id_rsa`, `.pem`) and dangerous shell patterns. Can be relaxed with `DISABLE_SECURITY_PATTERNS=true` (trusted environments only).
 
-`ToolMonitor` validates Claude's tool calls against allowlist/disallowlist, file path boundaries, and dangerous bash patterns. Tool name validation can be bypassed with `DISABLE_TOOL_VALIDATION=true`.
+`ToolMonitor` validates Codex's tool calls against allowlist/disallowlist, file path boundaries, and dangerous bash patterns. Tool name validation can be bypassed with `DISABLE_TOOL_VALIDATION=true`.
 
 Webhook authentication: GitHub HMAC-SHA256 signature verification, generic Bearer token for other providers, atomic deduplication via `webhook_events` table.
 
@@ -100,7 +100,7 @@ Security relaxation (trusted environments only): `DISABLE_SECURITY_PATTERNS` (de
 
 Multi-project topics: `ENABLE_PROJECT_THREADS` (default false), `PROJECT_THREADS_MODE` (`private`|`group`), `PROJECT_THREADS_CHAT_ID` (required for group mode), `PROJECTS_CONFIG_PATH` (path to YAML project registry). See `config/projects.example.yaml`.
 
-Output verbosity: `VERBOSE_LEVEL` (default 1, range 0-2). Controls how much of Claude's background activity is shown to the user in real-time. 0 = quiet (only final response, typing indicator still active), 1 = normal (tool names + reasoning snippets shown during execution), 2 = detailed (tool names with input summaries + longer reasoning text). Users can override per-session via `/verbose 0|1|2`. A persistent typing indicator is refreshed every ~2 seconds at all levels.
+Output verbosity: `VERBOSE_LEVEL` (default 1, range 0-2). Controls how much of Codex's background activity is shown to the user in real-time. 0 = quiet (only final response, typing indicator still active), 1 = normal (tool names + reasoning snippets shown during execution), 2 = detailed (tool names with input summaries + longer reasoning text). Users can override per-session via `/verbose 0|1|2`. A persistent typing indicator is refreshed every ~2 seconds at all levels.
 
 Feature flags in `src/config/features.py` control: MCP, git integration, file uploads, quick actions, session export, image uploads, conversation mode, agentic mode, API server, scheduler.
 

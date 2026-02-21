@@ -1,4 +1,4 @@
-# Contributing to Claude Code Telegram Bot
+# Contributing to Codex Code Telegram Bot
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the project.
 
@@ -24,8 +24,8 @@ This project is currently under active development with the following status:
 
 1. **Fork and clone the repository**:
    ```bash
-   git clone https://github.com/your-username/claude-code-telegram.git
-   cd claude-code-telegram
+   git clone https://github.com/your-username/codex-code-telegram.git
+   cd codex-code-telegram
    ```
 
 2. **Install dependencies**:
@@ -62,7 +62,7 @@ This project is currently under active development with the following status:
    ├── config/     # Configuration (✅ Complete)
    ├── security/   # Authentication & Security (✅ Complete)
    ├── bot/        # Telegram bot (✅ Complete - TODO-4)  
-   ├── claude/     # Claude integration (✅ Complete - TODO-5)
+   ├── codex/     # Codex integration (✅ Complete - TODO-5)
    └── storage/    # Database (✅ Complete - TODO-6)
    ```
 
@@ -170,8 +170,8 @@ async def test_feature():
 - ✅ Inline keyboard support
 - ✅ Error handling middleware
 
-#### TODO-5: Claude Code Integration
-- ✅ Subprocess management for Claude CLI
+#### TODO-5: Codex Code Integration
+- ✅ Subprocess management for Codex CLI
 - ✅ Response streaming and parsing
 - ✅ Session state persistence
 - ✅ Timeout handling
@@ -403,4 +403,4 @@ Contributors will be recognized in:
 - Project documentation
 - Release notes
 
-Thank you for contributing to Claude Code Telegram Bot! 🚀
+Thank you for contributing to Codex Code Telegram Bot! 🚀

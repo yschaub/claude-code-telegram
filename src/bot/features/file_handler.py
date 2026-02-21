@@ -50,7 +50,7 @@ class FileHandler:
     def __init__(self, config: Settings, security: SecurityValidator):
         self.config = config
         self.security = security
-        self.temp_dir = Path("/tmp/claude_bot_files")
+        self.temp_dir = Path("/tmp/codex_bot_files")
         self.temp_dir.mkdir(exist_ok=True)
 
         # Supported code extensions

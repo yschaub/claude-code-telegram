@@ -1,6 +1,6 @@
 # Development Guide
 
-This document provides detailed information for developers working on the Claude Code Telegram Bot.
+This document provides detailed information for developers working on the Codex Code Telegram Bot.
 
 ## Getting Started
 
@@ -9,8 +9,8 @@ This document provides detailed information for developers working on the Claude
 - Python 3.9 or higher
 - Poetry for dependency management
 - Git for version control
-- Claude authentication (one of):
-  - Claude Code CLI installed and authenticated
+- Codex authentication (one of):
+  - Codex Code CLI installed and authenticated
   - Anthropic API key for direct SDK usage
 
 ### Initial Setup
@@ -18,7 +18,7 @@ This document provides detailed information for developers working on the Claude
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd claude-code-telegram
+   cd codex-code-telegram
    ```
 
 2. **Install Poetry** (if not already installed):
@@ -98,14 +98,14 @@ src/
 │   ├── handlers/     # Command and message handlers
 │   ├── middleware/   # Authentication and rate limiting
 │   └── utils/        # Response formatting utilities
-├── claude/           # Claude Code integration (✅ Complete)
+├── codex/           # Codex Code integration (✅ Complete)
 │   ├── __init__.py
 │   ├── integration.py # Subprocess management
 │   ├── parser.py     # Output parsing and formatting
 │   ├── session.py    # Session management
 │   ├── monitor.py    # Tool usage monitoring
 │   ├── facade.py     # High-level integration API
-│   └── exceptions.py # Claude-specific exceptions
+│   └── exceptions.py # Codex-specific exceptions
 ├── storage/          # Database and persistence (✅ Complete)
 │   ├── __init__.py
 │   ├── database.py   # Database connection and migrations
@@ -134,7 +134,7 @@ tests/
 │   ├── test_environments.py
 │   ├── test_exceptions.py
 │   ├── test_bot/     # Bot component tests
-│   ├── test_claude/  # Claude integration tests
+│   ├── test_codex/  # Codex integration tests
 │   ├── test_security/ # Security framework tests
 │   └── test_storage/ # Storage layer tests
 ├── integration/      # Integration tests (🚧 TODO)
@@ -242,7 +242,7 @@ We aim for >80% test coverage. Current coverage:
 
 - Configuration system: ~95%
 - Security framework: ~95%
-- Claude integration: ~75%
+- Codex integration: ~75%
 - Storage layer: ~90%
 - Bot components: ~85%
 - Exception handling: 100%
@@ -285,8 +285,8 @@ We aim for >80% test coverage. Current coverage:
 - Inline keyboard support for user interactions
 - Error handling middleware with user-friendly messages
 
-#### TODO-5: Claude Code Integration
-- Async subprocess management for Claude CLI with timeout handling
+#### TODO-5: Codex Code Integration
+- Async subprocess management for Codex CLI with timeout handling
 - Response streaming and parsing for real-time updates
 - Session state persistence with context maintenance
 - Tool usage monitoring and security validation
@@ -332,8 +332,8 @@ TELEGRAM_BOT_TOKEN=test_token_for_development
 TELEGRAM_BOT_USERNAME=test_bot
 APPROVED_DIRECTORY=/path/to/your/test/projects
 
-# Claude Authentication (choose one method)
-# Option 1: Use existing Claude CLI auth (no API key needed)
+# Codex Authentication (choose one method)
+# Option 1: Use existing Codex CLI auth (no API key needed)
 # Option 2: Direct API key
 # ANTHROPIC_API_KEY=sk-ant-api03-your-development-key
 
@@ -451,7 +451,7 @@ test: add tests for authentication system
 3. **Verify environment variables**:
    ```bash
    env | grep TELEGRAM
-   env | grep CLAUDE
+   env | grep CODEX
    ```
 
 4. **Test configuration loading**:

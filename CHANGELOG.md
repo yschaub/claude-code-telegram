@@ -10,11 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Agentic Mode** (default interaction model):
   - `MessageOrchestrator` routes messages to agentic (3 commands) or classic (13 commands) handlers based on `AGENTIC_MODE` setting
-  - Natural language conversation with Claude -- no terminal commands needed
+  - Natural language conversation with Codex -- no terminal commands needed
   - Automatic session persistence per user/project directory
 - **Event-Driven Platform**:
   - `EventBus` -- async pub/sub system with typed event subscriptions (UserMessage, Webhook, Scheduled, AgentResponse)
-  - `AgentHandler` -- bridges events to `ClaudeIntegration.run_command()` for webhook and scheduled event processing
+  - `AgentHandler` -- bridges events to `CodexIntegration.run_command()` for webhook and scheduled event processing
   - `EventSecurityMiddleware` -- validates events before handler processing
 - **Webhook API Server** (FastAPI):
   - `POST /webhooks/{provider}` endpoint for GitHub, Notion, and generic providers
@@ -33,8 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Broadcast to configurable default chat IDs
 - **Database Migration 3**: `scheduled_jobs` and `webhook_events` tables, WAL mode enabled
 - **Automatic Session Resumption**: Sessions are now automatically resumed per user+directory
-  - SDK integration passes `resume` parameter to Claude Code for real session continuity
-  - Session IDs extracted from Claude's `ResultMessage` instead of generated locally
+  - SDK integration passes `resume` parameter to Codex Code for real session continuity
+  - Session IDs extracted from Codex's `ResultMessage` instead of generated locally
   - `/cd` looks up and resumes existing sessions for the target directory
   - Auto-resume from SQLite database survives bot restarts
   - Graceful fallback to fresh session when resume fails
@@ -61,10 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Telegram Bot Core (TODO-4) - 2025-06-06
 - Complete Telegram bot with command routing, message parsing, inline keyboards
 - Navigation commands: /cd, /ls, /pwd for directory management
-- Session commands: /new, /continue, /status for Claude sessions
+- Session commands: /new, /continue, /status for Codex sessions
 - File upload support, progress indicators, response formatting
 
-#### Claude Code Integration (TODO-5) - 2025-06-06
+#### Codex Code Integration (TODO-5) - 2025-06-06
 - Async process execution with timeout handling
 - Session state management and cross-conversation continuity
 - Streaming JSON output parsing, tool call extraction
@@ -98,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TODO-2**: Configuration Management -- Complete
 - **TODO-3**: Authentication & Security Framework -- Complete
 - **TODO-4**: Telegram Bot Core -- Complete
-- **TODO-5**: Claude Code Integration -- Complete
+- **TODO-5**: Codex Code Integration -- Complete
 - **TODO-6**: Storage & Persistence -- Complete
 - **TODO-7**: Advanced Features -- Complete (agentic platform, webhooks, scheduler, notifications)
 - **TODO-8**: Complete Testing Suite -- In progress

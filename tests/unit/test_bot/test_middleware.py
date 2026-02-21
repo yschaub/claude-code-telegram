@@ -4,7 +4,7 @@ Verifies that when middleware rejects a request (auth failure, security
 violation, rate limit exceeded), ApplicationHandlerStop is raised to
 prevent subsequent handler groups from processing the update.
 
-Regression tests for: https://github.com/RichardAtCT/claude-code-telegram/issues/44
+Regression tests for: https://github.com/RichardAtCT/codex-code-telegram/issues/44
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from telegram.ext import ApplicationHandlerStop
 
-from src.bot.core import ClaudeCodeBot
+from src.bot.core import CodexCodeBot
 from src.bot.middleware.rate_limit import estimate_message_cost
 from src.config import create_test_config
 from src.config.settings import Settings
@@ -20,7 +20,7 @@ from src.config.settings import Settings
 
 @pytest.fixture
 def mock_settings():
-    """Minimal Settings mock for ClaudeCodeBot."""
+    """Minimal Settings mock for CodexCodeBot."""
     settings = MagicMock(spec=Settings)
     settings.telegram_token_str = "test:token"
     settings.webhook_url = None
@@ -40,16 +40,16 @@ def mock_settings():
 
 @pytest.fixture
 def bot(mock_settings):
-    """Create a ClaudeCodeBot instance with mock dependencies."""
+    """Create a CodexCodeBot instance with mock dependencies."""
     deps = {
         "auth_manager": MagicMock(),
         "security_validator": MagicMock(),
         "rate_limiter": MagicMock(),
         "audit_logger": MagicMock(),
         "storage": MagicMock(),
-        "claude_integration": MagicMock(),
+        "codex_integration": MagicMock(),
     }
-    return ClaudeCodeBot(mock_settings, deps)
+    return CodexCodeBot(mock_settings, deps)
 
 
 @pytest.fixture
@@ -212,7 +212,7 @@ class TestMiddlewareBlocksSubsequentGroups:
 async def test_middleware_wrapper_stops_bot_originated_updates() -> None:
     """Middleware wrapper should stop updates sent by bot users."""
     settings = create_test_config()
-    claude_bot = ClaudeCodeBot(settings, {})
+    codex_bot = CodexCodeBot(settings, {})
 
     middleware_called = False
 
@@ -221,7 +221,7 @@ async def test_middleware_wrapper_stops_bot_originated_updates() -> None:
         middleware_called = True
         return await handler(event, data)
 
-    wrapper = claude_bot._create_middleware_handler(fake_middleware)
+    wrapper = codex_bot._create_middleware_handler(fake_middleware)
 
     update = MagicMock()
     update.effective_user = MagicMock(id=123, is_bot=True)
@@ -238,7 +238,7 @@ async def test_middleware_wrapper_stops_bot_originated_updates() -> None:
 async def test_middleware_wrapper_runs_for_non_bot_updates() -> None:
     """Middleware wrapper should execute middleware for user updates."""
     settings = create_test_config()
-    claude_bot = ClaudeCodeBot(settings, {})
+    codex_bot = CodexCodeBot(settings, {})
 
     middleware_called = False
 
@@ -247,7 +247,7 @@ async def test_middleware_wrapper_runs_for_non_bot_updates() -> None:
         middleware_called = True
         return await handler(event, data)
 
-    wrapper = claude_bot._create_middleware_handler(allowing_middleware)
+    wrapper = codex_bot._create_middleware_handler(allowing_middleware)
 
     update = MagicMock()
     update.effective_user = MagicMock(id=456, is_bot=False)

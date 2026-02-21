@@ -57,7 +57,7 @@ class TestResponseFormatter:
     def test_format_simple_message(self, formatter):
         """Test formatting simple message."""
         text = "Hello, world!"
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         assert len(messages) == 1
         assert messages[0].text == text
@@ -66,7 +66,7 @@ class TestResponseFormatter:
     def test_format_code_blocks(self, formatter):
         """Test code block formatting."""
         text = "Here's some code:\n```python\nprint('hello')\n```"
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         assert len(messages) == 1
         assert "<pre>" in messages[0].text
@@ -80,7 +80,7 @@ class TestResponseFormatter:
         """Test splitting long messages."""
         # Create a message longer than max_message_length
         long_text = "A" * 5000
-        messages = formatter.format_claude_response(long_text)
+        messages = formatter.format_codex_response(long_text)
 
         # Should be split into multiple messages
         assert len(messages) > 1
@@ -199,7 +199,7 @@ class TestResponseFormatter:
         long_code = "x" * 5000
         text = f"```python\n{long_code}\n```"
 
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         # Should be split across messages, not truncated
         assert len(messages) >= 1
@@ -446,7 +446,7 @@ TELEGRAM_HARD_LIMIT = 4096
 class TestOversizedResponseIntegration:
     """End-to-end tests ensuring no formatted chunk exceeds Telegram's 4096-char limit.
 
-    These exercise the full format_claude_response pipeline: markdown→HTML
+    These exercise the full format_codex_response pipeline: markdown→HTML
     conversion, HTML escaping, code block handling, semantic chunking, and
     message splitting.
     """
@@ -457,7 +457,7 @@ class TestOversizedResponseIntegration:
         paragraph = "The quick brown fox jumps over the lazy dog. " * 10 + "\n\n"
         text = paragraph * 30  # ~13 500 chars
 
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         assert len(messages) > 1
         for i, msg in enumerate(messages):
@@ -471,7 +471,7 @@ class TestOversizedResponseIntegration:
         code_lines = [f"    result += process(item_{i})" for i in range(500)]
         text = "```python\ndef big_function():\n" + "\n".join(code_lines) + "\n```"
 
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         assert len(messages) > 1
         for i, msg in enumerate(messages):
@@ -486,7 +486,7 @@ class TestOversizedResponseIntegration:
         line = "if (a < b && c > d) { e &= f; }\n"
         text = "```go\n" + line * 200 + "```"
 
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         for i, msg in enumerate(messages):
             assert len(msg.text) <= TELEGRAM_HARD_LIMIT, (
@@ -506,7 +506,7 @@ class TestOversizedResponseIntegration:
 
         text = "".join(sections)
 
-        messages = formatter.format_claude_response(text)
+        messages = formatter.format_codex_response(text)
 
         assert len(messages) > 1
         for i, msg in enumerate(messages):

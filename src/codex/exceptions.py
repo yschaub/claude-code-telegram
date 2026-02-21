@@ -1,27 +1,27 @@
-"""Claude-specific exceptions."""
+"""Codex-specific exceptions."""
 
 
-class ClaudeError(Exception):
-    """Base Claude error."""
+class CodexError(Exception):
+    """Base Codex error."""
 
 
-class ClaudeTimeoutError(ClaudeError):
+class CodexTimeoutError(CodexError):
     """Operation timed out."""
 
 
-class ClaudeProcessError(ClaudeError):
+class CodexProcessError(CodexError):
     """Process execution failed."""
 
 
-class ClaudeParsingError(ClaudeError):
+class CodexParsingError(CodexError):
     """Failed to parse output."""
 
 
-class ClaudeSessionError(ClaudeError):
+class CodexSessionError(CodexError):
     """Session management error."""
 
 
-class ClaudeMCPError(ClaudeError):
+class CodexMCPError(CodexError):
     """MCP server connection or configuration error."""
 
     def __init__(self, message: str, server_name: str = None):
@@ -29,8 +29,8 @@ class ClaudeMCPError(ClaudeError):
         self.server_name = server_name
 
 
-class ClaudeToolValidationError(ClaudeError):
-    """Tool validation failed during Claude execution."""
+class CodexToolValidationError(CodexError):
+    """Tool validation failed during Codex execution."""
 
     def __init__(
         self, message: str, blocked_tools: list = None, allowed_tools: list = None

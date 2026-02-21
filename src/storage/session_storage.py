@@ -9,7 +9,7 @@ from typing import List, Optional
 
 import structlog
 
-from ..claude.session import ClaudeSession, SessionStorageProtocol
+from ..codex.session import CodexSession, SessionStorageProtocol
 from .database import DatabaseManager
 from .models import SessionModel
 
@@ -59,7 +59,7 @@ class SQLiteSessionStorage(SessionStorageProtocol):
                     username=username,
                 )
 
-    async def save_session(self, session: ClaudeSession) -> None:
+    async def save_session(self, session: CodexSession) -> None:
         """Save session to database."""
         # Ensure user exists before creating session
         await self._ensure_user_exists(session.user_id)
@@ -121,7 +121,7 @@ class SQLiteSessionStorage(SessionStorageProtocol):
             user_id=session.user_id,
         )
 
-    async def load_session(self, session_id: str) -> Optional[ClaudeSession]:
+    async def load_session(self, session_id: str) -> Optional[CodexSession]:
         """Load session from database."""
         async with self.db_manager.get_connection() as conn:
             cursor = await conn.execute(
@@ -134,8 +134,8 @@ class SQLiteSessionStorage(SessionStorageProtocol):
 
             session_model = SessionModel.from_row(row)
 
-            # Convert to ClaudeSession
-            claude_session = ClaudeSession(
+            # Convert to CodexSession
+            codex_session = CodexSession(
                 session_id=session_model.session_id,
                 user_id=session_model.user_id,
                 project_path=Path(session_model.project_path),
@@ -150,10 +150,10 @@ class SQLiteSessionStorage(SessionStorageProtocol):
             logger.debug(
                 "Session loaded from database",
                 session_id=session_id,
-                user_id=claude_session.user_id,
+                user_id=codex_session.user_id,
             )
 
-            return claude_session
+            return codex_session
 
     async def delete_session(self, session_id: str) -> None:
         """Delete session from database."""
@@ -166,7 +166,7 @@ class SQLiteSessionStorage(SessionStorageProtocol):
 
         logger.debug("Session marked as inactive", session_id=session_id)
 
-    async def get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+    async def get_user_sessions(self, user_id: int) -> List[CodexSession]:
         """Get all active sessions for a user."""
         async with self.db_manager.get_connection() as conn:
             cursor = await conn.execute(
@@ -182,7 +182,7 @@ class SQLiteSessionStorage(SessionStorageProtocol):
             sessions = []
             for row in rows:
                 session_model = SessionModel.from_row(row)
-                claude_session = ClaudeSession(
+                codex_session = CodexSession(
                     session_id=session_model.session_id,
                     user_id=session_model.user_id,
                     project_path=Path(session_model.project_path),
@@ -193,11 +193,11 @@ class SQLiteSessionStorage(SessionStorageProtocol):
                     message_count=session_model.message_count,
                     tools_used=[],  # Tools are tracked separately
                 )
-                sessions.append(claude_session)
+                sessions.append(codex_session)
 
             return sessions
 
-    async def get_all_sessions(self) -> List[ClaudeSession]:
+    async def get_all_sessions(self) -> List[CodexSession]:
         """Get all active sessions."""
         async with self.db_manager.get_connection() as conn:
             cursor = await conn.execute(
@@ -208,7 +208,7 @@ class SQLiteSessionStorage(SessionStorageProtocol):
             sessions = []
             for row in rows:
                 session_model = SessionModel.from_row(row)
-                claude_session = ClaudeSession(
+                codex_session = CodexSession(
                     session_id=session_model.session_id,
                     user_id=session_model.user_id,
                     project_path=Path(session_model.project_path),
@@ -219,7 +219,7 @@ class SQLiteSessionStorage(SessionStorageProtocol):
                     message_count=session_model.message_count,
                     tools_used=[],  # Tools are tracked separately
                 )
-                sessions.append(claude_session)
+                sessions.append(codex_session)
 
             return sessions
 

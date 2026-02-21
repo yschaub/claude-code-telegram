@@ -4,6 +4,8 @@ import asyncio
 import time
 from typing import Any, Dict
 
+from .session_keys import get_integration
+
 _CACHE_KEY = "_codex_runtime_health_cache"
 _CACHE_TTL_SECONDS = 30.0
 _AUTH_STATUS_TIMEOUT_SECONDS = 5.0
@@ -23,7 +25,7 @@ async def get_codex_runtime_health(bot_data: Dict[str, Any]) -> Dict[str, str]:
         "auth_detail": "Unavailable",
     }
 
-    integration = bot_data.get("claude_integration")
+    integration = get_integration(bot_data)
     sdk_manager = getattr(integration, "sdk_manager", None) if integration else None
     codex_path = getattr(sdk_manager, "codex_path", None)
 
@@ -71,4 +73,3 @@ async def get_codex_runtime_health(bot_data: Dict[str, Any]) -> Dict[str, str]:
 
     bot_data[_CACHE_KEY] = {"timestamp": now, "value": health}
     return health
-

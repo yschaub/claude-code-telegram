@@ -74,7 +74,7 @@ def private_thread_settings(tmp_dir):
 @pytest.fixture
 def deps():
     return {
-        "claude_integration": MagicMock(),
+        "codex_integration": MagicMock(),
         "storage": MagicMock(),
         "security_validator": MagicMock(),
         "rate_limiter": MagicMock(),
@@ -211,11 +211,11 @@ async def test_agentic_new_resets_session(agentic_settings, deps):
     update.message.reply_text = AsyncMock()
 
     context = MagicMock()
-    context.user_data = {"claude_session_id": "old-session-123"}
+    context.user_data = {"codex_session_id": "old-session-123"}
 
     await orchestrator.agentic_new(update, context)
 
-    assert context.user_data["claude_session_id"] is None
+    assert context.user_data["codex_session_id"] is None
     update.message.reply_text.assert_called_once_with("Session reset. What's next?")
 
 
@@ -238,18 +238,18 @@ async def test_agentic_status_compact(agentic_settings, deps):
     assert "Session: none" in text
 
 
-async def test_agentic_text_calls_claude(agentic_settings, deps):
-    """Agentic text handler calls Claude and returns response without keyboard."""
+async def test_agentic_text_calls_codex(agentic_settings, deps):
+    """Agentic text handler calls Codex and returns response without keyboard."""
     orchestrator = MessageOrchestrator(agentic_settings, deps)
 
-    # Mock Claude response
+    # Mock Codex response
     mock_response = MagicMock()
     mock_response.session_id = "session-abc"
     mock_response.content = "Hello, I can help with that!"
     mock_response.tools_used = []
 
-    claude_integration = AsyncMock()
-    claude_integration.run_command = AsyncMock(return_value=mock_response)
+    codex_integration = AsyncMock()
+    codex_integration.run_command = AsyncMock(return_value=mock_response)
 
     update = MagicMock()
     update.effective_user.id = 123
@@ -267,7 +267,7 @@ async def test_agentic_text_calls_claude(agentic_settings, deps):
     context.user_data = {}
     context.bot_data = {
         "settings": agentic_settings,
-        "claude_integration": claude_integration,
+        "codex_integration": codex_integration,
         "storage": None,
         "rate_limiter": None,
         "audit_logger": None,
@@ -275,11 +275,11 @@ async def test_agentic_text_calls_claude(agentic_settings, deps):
 
     await orchestrator.agentic_text(update, context)
 
-    # Claude was called
-    claude_integration.run_command.assert_called_once()
+    # Codex was called
+    codex_integration.run_command.assert_called_once()
 
     # Session ID updated
-    assert context.user_data["claude_session_id"] == "session-abc"
+    assert context.user_data["codex_session_id"] == "session-abc"
 
     # Progress message deleted
     progress_msg.delete.assert_called_once()
@@ -357,11 +357,11 @@ async def test_agentic_start_escapes_html_in_name(agentic_settings, deps):
 
 
 async def test_agentic_text_logs_failure_on_error(agentic_settings, deps):
-    """Failed Claude runs are logged with success=False."""
+    """Failed Codex runs are logged with success=False."""
     orchestrator = MessageOrchestrator(agentic_settings, deps)
 
-    claude_integration = AsyncMock()
-    claude_integration.run_command = AsyncMock(side_effect=Exception("Claude broke"))
+    codex_integration = AsyncMock()
+    codex_integration.run_command = AsyncMock(side_effect=Exception("Codex broke"))
 
     audit_logger = AsyncMock()
     audit_logger.log_command = AsyncMock()
@@ -381,7 +381,7 @@ async def test_agentic_text_logs_failure_on_error(agentic_settings, deps):
     context.user_data = {}
     context.bot_data = {
         "settings": agentic_settings,
-        "claude_integration": claude_integration,
+        "codex_integration": codex_integration,
         "storage": None,
         "rate_limiter": None,
         "audit_logger": audit_logger,
@@ -608,8 +608,8 @@ async def test_thread_mode_loads_and_persists_thread_state(group_thread_settings
     deps["project_threads_manager"] = project_threads_manager
 
     async def dummy_handler(update, context):
-        assert context.user_data["claude_session_id"] == "old-session"
-        context.user_data["claude_session_id"] = "new-session"
+        assert context.user_data["codex_session_id"] == "old-session"
+        context.user_data["codex_session_id"] = "new-session"
 
     wrapped = orchestrator._inject_deps(dummy_handler)
 
@@ -625,7 +625,7 @@ async def test_thread_mode_loads_and_persists_thread_state(group_thread_settings
         "thread_state": {
             "-1001234567890:777": {
                 "current_directory": str(project_path),
-                "claude_session_id": "old-session",
+                "codex_session_id": "old-session",
             }
         }
     }
@@ -633,7 +633,7 @@ async def test_thread_mode_loads_and_persists_thread_state(group_thread_settings
     await wrapped(update, context)
 
     assert (
-        context.user_data["thread_state"]["-1001234567890:777"]["claude_session_id"]
+        context.user_data["thread_state"]["-1001234567890:777"]["codex_session_id"]
         == "new-session"
     )
 
@@ -733,7 +733,7 @@ async def test_private_mode_start_inside_topic_uses_thread_context(
         "thread_state": {
             "12345:777": {
                 "current_directory": str(project_path),
-                "claude_session_id": "old",
+                "codex_session_id": "old",
             }
         }
     }

@@ -7,12 +7,18 @@ import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from ...claude.facade import ClaudeIntegration
+from ...codex.facade import CodexIntegration
 from ...config.settings import Settings
 from ...security.audit import AuditLogger
 from ...security.validators import SecurityValidator
 from ..utils.html_format import escape_html
 from ..utils.runtime_health import get_codex_runtime_health
+from ..utils.session_keys import (
+    clear_session_id,
+    get_integration,
+    get_session_id,
+    set_session_id,
+)
 
 logger = structlog.get_logger()
 
@@ -112,7 +118,7 @@ async def handle_cd_callback(
     settings: Settings = context.bot_data["settings"]
     security_validator: SecurityValidator = context.bot_data.get("security_validator")
     audit_logger: AuditLogger = context.bot_data.get("audit_logger")
-    claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
+    codex_integration: CodexIntegration = get_integration(context.bot_data)
 
     try:
         current_dir = context.user_data.get(
@@ -170,23 +176,23 @@ async def handle_cd_callback(
         context.user_data["current_directory"] = new_path
 
         resumed_session_info = ""
-        if claude_integration:
-            existing_session = await claude_integration._find_resumable_session(
+        if codex_integration:
+            existing_session = await codex_integration._find_resumable_session(
                 user_id, new_path
             )
             if existing_session:
-                context.user_data["claude_session_id"] = existing_session.session_id
+                set_session_id(context.user_data, existing_session.session_id)
                 resumed_session_info = (
                     f"\n🔄 Resumed session <code>{escape_html(existing_session.session_id[:8])}...</code> "
                     f"({existing_session.message_count} messages)"
                 )
             else:
-                context.user_data["claude_session_id"] = None
+                clear_session_id(context.user_data)
                 resumed_session_info = (
                     "\n🆕 No existing session. Send a message to start a new one."
                 )
         else:
-            context.user_data["claude_session_id"] = None
+            clear_session_id(context.user_data)
             resumed_session_info = "\n🆕 Send a message to start a new session."
 
         # Send confirmation with new directory info
@@ -423,7 +429,7 @@ async def _handle_new_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
     settings: Settings = context.bot_data["settings"]
 
     # Clear session
-    context.user_data["claude_session_id"] = None
+    clear_session_id(context.user_data)
     context.user_data["session_started"] = True
 
     current_dir = context.user_data.get(
@@ -463,9 +469,9 @@ async def _handle_end_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
     settings: Settings = context.bot_data["settings"]
 
     # Check if there's an active session
-    claude_session_id = context.user_data.get("claude_session_id")
+    codex_session_id = get_session_id(context.user_data)
 
-    if not claude_session_id:
+    if not codex_session_id:
         await query.edit_message_text(
             "ℹ️ <b>No Active Session</b>\n\n"
             "There's no active Codex session to end.\n\n"
@@ -494,7 +500,7 @@ async def _handle_end_session_action(query, context: ContextTypes.DEFAULT_TYPE) 
     relative_path = current_dir.relative_to(settings.approved_directory)
 
     # Clear session data
-    context.user_data["claude_session_id"] = None
+    clear_session_id(context.user_data)
     context.user_data["session_started"] = False
     context.user_data["last_message"] = None
 
@@ -533,14 +539,14 @@ async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> 
     """Handle continue session action."""
     user_id = query.from_user.id
     settings: Settings = context.bot_data["settings"]
-    claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
+    codex_integration: CodexIntegration = get_integration(context.bot_data)
 
     current_dir = context.user_data.get(
         "current_directory", settings.approved_directory
     )
 
     try:
-        if not claude_integration:
+        if not codex_integration:
             await query.edit_message_text(
                 "❌ <b>Codex Integration Not Available</b>\n\n"
                 "Codex integration is not properly configured.",
@@ -549,23 +555,23 @@ async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> 
             return
 
         # Check if there's an existing session in user context
-        claude_session_id = context.user_data.get("claude_session_id")
+        codex_session_id = get_session_id(context.user_data)
 
-        if claude_session_id:
+        if codex_session_id:
             # Continue with the existing session (no prompt = use --continue)
             await query.edit_message_text(
                 f"🔄 <b>Continuing Session</b>\n\n"
-                f"Session ID: <code>{escape_html(claude_session_id[:8])}...</code>\n"
+                f"Session ID: <code>{escape_html(codex_session_id[:8])}...</code>\n"
                 f"Directory: <code>{escape_html(str(current_dir.relative_to(settings.approved_directory)))}/</code>\n\n"
                 f"Continuing where you left off...",
                 parse_mode="HTML",
             )
 
-            claude_response = await claude_integration.run_command(
+            codex_response = await codex_integration.run_command(
                 prompt="",  # Empty prompt triggers --continue
                 working_directory=current_dir,
                 user_id=user_id,
-                session_id=claude_session_id,
+                session_id=codex_session_id,
             )
         else:
             # No session in context, try to find the most recent session
@@ -575,20 +581,20 @@ async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> 
                 parse_mode="HTML",
             )
 
-            claude_response = await claude_integration.continue_session(
+            codex_response = await codex_integration.continue_session(
                 user_id=user_id,
                 working_directory=current_dir,
                 prompt=None,  # No prompt = use --continue
             )
 
-        if claude_response:
+        if codex_response:
             # Update session ID in context
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
-            # Send Claude's response
+            # Send Codex's response
             await query.message.reply_text(
                 f"✅ <b>Session Continued</b>\n\n"
-                f"{escape_html(claude_response.content[:500])}{'...' if len(claude_response.content) > 500 else ''}",
+                f"{escape_html(codex_response.content[:500])}{'...' if len(codex_response.content) > 500 else ''}",
                 parse_mode="HTML",
             )
         else:
@@ -641,7 +647,7 @@ async def _handle_status_action(query, context: ContextTypes.DEFAULT_TYPE) -> No
     user_id = query.from_user.id
     settings: Settings = context.bot_data["settings"]
 
-    claude_session_id = context.user_data.get("claude_session_id")
+    codex_session_id = get_session_id(context.user_data)
     current_dir = context.user_data.get(
         "current_directory", settings.approved_directory
     )
@@ -686,20 +692,20 @@ async def _handle_status_action(query, context: ContextTypes.DEFAULT_TYPE) -> No
         "📊 <b>Session Status</b>",
         "",
         f"📂 Directory: <code>{escape_html(str(relative_path))}/</code>",
-        f"🤖 Codex Session: {'✅ Active' if claude_session_id else '❌ None'}",
+        f"🤖 Codex Session: {'✅ Active' if codex_session_id else '❌ None'}",
         codex_cli_line,
         auth_line,
         usage_info.rstrip(),
     ]
 
-    if claude_session_id:
+    if codex_session_id:
         status_lines.append(
-            f"🆔 Session ID: <code>{escape_html(claude_session_id[:8])}...</code>"
+            f"🆔 Session ID: <code>{escape_html(codex_session_id[:8])}...</code>"
         )
 
     # Add action buttons
     keyboard = []
-    if claude_session_id:
+    if codex_session_id:
         keyboard.append(
             [
                 InlineKeyboardButton("🔄 Continue", callback_data="action:continue"),
@@ -908,8 +914,8 @@ async def handle_quick_action_callback(
         return
 
     # Get Codex integration
-    claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
-    if not claude_integration:
+    codex_integration: CodexIntegration = get_integration(context.bot_data)
+    if not codex_integration:
         await query.edit_message_text(
             "❌ <b>Codex Integration Not Available</b>\n\n"
             "Codex integration is not properly configured.",
@@ -941,14 +947,14 @@ async def handle_quick_action_callback(
             parse_mode="HTML",
         )
 
-        # Run the action through Claude
-        claude_response = await claude_integration.run_command(
+        # Run the action through Codex
+        codex_response = await codex_integration.run_command(
             prompt=action.prompt, working_directory=current_dir, user_id=user_id
         )
 
-        if claude_response:
+        if codex_response:
             # Format and send the response
-            response_text = escape_html(claude_response.content)
+            response_text = escape_html(codex_response.content)
             if len(response_text) > 4000:
                 response_text = (
                     response_text[:4000] + "...\n\n<i>(Response truncated)</i>"
@@ -1055,7 +1061,7 @@ async def handle_conversation_callback(
             conversation_enhancer.clear_context(user_id)
 
         # Clear session data
-        context.user_data["claude_session_id"] = None
+        clear_session_id(context.user_data)
         context.user_data["session_started"] = False
 
         current_dir = context.user_data.get(
@@ -1265,8 +1271,8 @@ async def handle_export_callback(
         return
 
     # Get current session
-    claude_session_id = context.user_data.get("claude_session_id")
-    if not claude_session_id:
+    codex_session_id = get_session_id(context.user_data)
+    if not codex_session_id:
         await query.edit_message_text(
             "❌ <b>No Active Session</b>\n\n" "There's no active session to export.",
             parse_mode="HTML",
@@ -1283,7 +1289,7 @@ async def handle_export_callback(
 
         # Export session
         exported_session = await session_exporter.export_session(
-            claude_session_id, export_format
+            codex_session_id, export_format
         )
 
         # Send the exported file

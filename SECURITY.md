@@ -8,7 +8,7 @@
 
 ## Security Model
 
-The Claude Code Telegram Bot implements a defense-in-depth security model with multiple layers:
+The Codex Code Telegram Bot implements a defense-in-depth security model with multiple layers:
 
 ### 1. Authentication & Authorization
 - **User Whitelist**: Only pre-approved Telegram user IDs can access the bot
@@ -28,7 +28,7 @@ The Claude Code Telegram Bot implements a defense-in-depth security model with m
 
 ### 4. Rate Limiting
 - **Request Rate Limiting**: Token bucket algorithm prevents abuse with configurable limits
-- **Cost-Based Limiting**: Tracks and limits Claude usage costs per user
+- **Cost-Based Limiting**: Tracks and limits Codex usage costs per user
 - **Burst Protection**: Configurable burst capacity prevents spike attacks
 
 ### 5. Audit Logging
@@ -96,7 +96,7 @@ RATE_LIMIT_WINDOW=60
 RATE_LIMIT_BURST=10
 
 # Cost controls
-CLAUDE_MAX_COST_PER_USER=5.0
+CODEX_MAX_COST_PER_USER=5.0
 
 # Security features
 ENABLE_TELEMETRY=true  # For security monitoring

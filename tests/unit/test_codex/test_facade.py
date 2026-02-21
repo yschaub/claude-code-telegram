@@ -1,4 +1,4 @@
-"""Test ClaudeIntegration facade — force_new skips auto-resume."""
+"""Test CodexIntegration facade — force_new skips auto-resume."""
 
 from datetime import datetime
 from pathlib import Path
@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.claude.exceptions import ClaudeProcessError
-from src.claude.facade import ClaudeIntegration
-from src.claude.session import ClaudeSession, SessionManager
+from src.codex.exceptions import CodexProcessError
+from src.codex.facade import CodexIntegration
+from src.codex.session import CodexSession, SessionManager
 from src.config.settings import Settings
 
 
 def _make_mock_response(session_id: str = "new-session-id") -> MagicMock:
-    """Create a mock ClaudeResponse with sensible defaults."""
+    """Create a mock CodexResponse with sensible defaults."""
     resp = MagicMock()
     resp.session_id = session_id
     resp.cost = 0.0
@@ -29,7 +29,7 @@ def _make_mock_response(session_id: str = "new-session-id") -> MagicMock:
 def _make_user_data(force_new: bool = False) -> Dict[str, Any]:
     """Simulate context.user_data dict as the handlers would see it."""
     return {
-        "claude_session_id": None,
+        "codex_session_id": None,
         "session_started": True,
         "force_new_session": force_new,
     }
@@ -39,21 +39,21 @@ class _MemorySessionStorage:
     """Minimal in-memory storage used by SessionManager tests."""
 
     def __init__(self):
-        self.sessions: Dict[str, ClaudeSession] = {}
+        self.sessions: Dict[str, CodexSession] = {}
 
-    async def save_session(self, session: ClaudeSession) -> None:
+    async def save_session(self, session: CodexSession) -> None:
         self.sessions[session.session_id] = session
 
-    async def load_session(self, session_id: str) -> Optional[ClaudeSession]:
+    async def load_session(self, session_id: str) -> Optional[CodexSession]:
         return self.sessions.get(session_id)
 
     async def delete_session(self, session_id: str) -> None:
         self.sessions.pop(session_id, None)
 
-    async def get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+    async def get_user_sessions(self, user_id: int) -> List[CodexSession]:
         return [s for s in self.sessions.values() if s.user_id == user_id]
 
-    async def get_all_sessions(self) -> List[ClaudeSession]:
+    async def get_all_sessions(self) -> List[CodexSession]:
         return list(self.sessions.values())
 
 
@@ -85,7 +85,7 @@ def facade(config, session_manager):
     tool_authorizer.get_tool_stats = MagicMock(return_value={})
     tool_authorizer.get_user_tool_usage = MagicMock(return_value={})
 
-    integration = ClaudeIntegration(
+    integration = CodexIntegration(
         config=config,
         sdk_manager=sdk_manager,
         session_manager=session_manager,
@@ -103,7 +103,7 @@ class TestForceNewSkipsAutoResume:
         user_id = 123
 
         # Seed an existing non-temp session in storage
-        existing = ClaudeSession(
+        existing = CodexSession(
             session_id="real-session-id",
             user_id=user_id,
             project_path=project,
@@ -124,7 +124,7 @@ class TestForceNewSkipsAutoResume:
         user_id = 123
 
         # Seed an existing non-temp session
-        existing = ClaudeSession(
+        existing = CodexSession(
             session_id="real-session-id",
             user_id=user_id,
             project_path=project,
@@ -164,8 +164,8 @@ class TestForceNewSurvivesFailure:
         session_manager: SessionManager,
         user_id: int = 123,
         project: Path = Path("/test/project"),
-    ) -> ClaudeSession:
-        existing = ClaudeSession(
+    ) -> CodexSession:
+        existing = CodexSession(
             session_id="old-session-id",
             user_id=user_id,
             project_path=project,
@@ -299,7 +299,7 @@ class TestEmptySessionIdWarning:
     """Verify facade warns when final session_id is empty."""
 
     async def test_empty_session_id_warning_in_facade(self, facade, session_manager):
-        """When Claude returns no session_id, facade logs a warning."""
+        """When Codex returns no session_id, facade logs a warning."""
         project = Path("/test/project")
         user_id = 456
 
@@ -329,7 +329,7 @@ class TestResumeFallback:
         project = Path("/test/project")
         user_id = 789
 
-        existing = ClaudeSession(
+        existing = CodexSession(
             session_id="resume-session-id",
             user_id=user_id,
             project_path=project,
@@ -339,7 +339,7 @@ class TestResumeFallback:
         await session_manager.storage.save_session(existing)
         session_manager.active_sessions[existing.session_id] = existing
 
-        first_error = ClaudeProcessError("Codex process error: Codex CLI exited with status 1")
+        first_error = CodexProcessError("Codex process error: Codex CLI exited with status 1")
         second_response = _make_mock_response(session_id="fresh-session-id")
 
         with patch.object(

@@ -1,8 +1,8 @@
-"""Codex CLI integration behind the existing Claude-compatible interface.
+"""Codex CLI integration behind the existing Codex-compatible interface.
 
 Compatibility goals:
-- Preserve ClaudeResponse / StreamUpdate datatypes
-- Preserve ClaudeSDKManager public methods used elsewhere
+- Preserve CodexResponse / StreamUpdate datatypes
+- Preserve CodexSDKManager public methods used elsewhere
 - Keep session semantics via ``codex exec resume``
 """
 
@@ -19,10 +19,10 @@ import structlog
 
 from ..config.settings import Settings
 from .exceptions import (
-    ClaudeMCPError,
-    ClaudeProcessError,
-    ClaudeTimeoutError,
-    ClaudeToolValidationError,
+    CodexMCPError,
+    CodexProcessError,
+    CodexTimeoutError,
+    CodexToolValidationError,
 )
 
 logger = structlog.get_logger()
@@ -66,7 +66,7 @@ def find_codex_cli(
 
 
 @dataclass
-class ClaudeResponse:
+class CodexResponse:
     """Response object kept for compatibility with existing callers."""
 
     content: str
@@ -89,7 +89,7 @@ class StreamUpdate:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class ClaudeSDKManager:
+class CodexSDKManager:
     """Compatibility manager that executes prompts through Codex CLI."""
 
     def __init__(self, config: Settings):
@@ -116,7 +116,7 @@ class ClaudeSDKManager:
         can_use_tool: Optional[
             Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
         ] = None,
-    ) -> ClaudeResponse:
+    ) -> CodexResponse:
         """Execute command via ``codex exec``."""
         start_time = asyncio.get_running_loop().time()
 
@@ -166,7 +166,7 @@ class ClaudeSDKManager:
                     stderr=asyncio.subprocess.PIPE,
                 )
             except FileNotFoundError as e:
-                raise ClaudeProcessError(
+                raise CodexProcessError(
                     "Codex CLI not found. Please install Codex CLI and ensure "
                     "`codex` is available in PATH, or set CODEX_CLI_PATH."
                 ) from e
@@ -262,10 +262,10 @@ class ClaudeSDKManager:
 
                 err_lower = err_text.lower()
                 if "mcp" in err_lower:
-                    raise ClaudeMCPError(f"MCP server error: {err_text}")
+                    raise CodexMCPError(f"MCP server error: {err_text}")
 
                 if "not logged in" in err_lower:
-                    raise ClaudeProcessError(
+                    raise CodexProcessError(
                         "Codex CLI is not logged in. Run `codex login` on the host "
                         "running this bot, then retry."
                     )
@@ -299,7 +299,7 @@ class ClaudeSDKManager:
                             diagnostics=diagnostics[-500:],
                         )
                     else:
-                        raise ClaudeProcessError(f"Codex process error: {err_text}")
+                        raise CodexProcessError(f"Codex process error: {err_text}")
 
             final_session_id = (
                 state["session_id"]
@@ -309,7 +309,7 @@ class ClaudeSDKManager:
 
             num_turns = state["turn_count"] or (1 if prompt.strip() else 0)
 
-            return ClaudeResponse(
+            return CodexResponse(
                 content=content,
                 session_id=final_session_id,
                 cost=0.0,  # Codex CLI does not expose direct USD cost in JSONL stream.
@@ -325,10 +325,10 @@ class ClaudeSDKManager:
                     await process.wait()
                 except Exception:
                     pass
-            raise ClaudeTimeoutError(
+            raise CodexTimeoutError(
                 f"Codex CLI timed out after {self.config.codex_timeout_seconds}s"
             ) from e
-        except ClaudeToolValidationError:
+        except CodexToolValidationError:
             if process and process.returncode is None:
                 process.kill()
                 try:
@@ -517,7 +517,7 @@ class ClaudeSDKManager:
                 if can_use_tool and tool_name:
                     try:
                         allowed, reason = await can_use_tool(tool_name, tool_input)
-                    except ClaudeToolValidationError:
+                    except CodexToolValidationError:
                         raise
                     except Exception as callback_error:
                         logger.warning(
@@ -525,12 +525,12 @@ class ClaudeSDKManager:
                             tool_name=tool_name,
                             error=str(callback_error),
                         )
-                        raise ClaudeToolValidationError(
+                        raise CodexToolValidationError(
                             f"Tool validation callback failed for {tool_name}: {callback_error}"
                         ) from callback_error
 
                     if not allowed:
-                        raise ClaudeToolValidationError(
+                        raise CodexToolValidationError(
                             reason or f"Tool not allowed: {tool_name}"
                         )
 

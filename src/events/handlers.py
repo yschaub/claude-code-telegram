@@ -1,6 +1,6 @@
-"""Event handlers that bridge the event bus to Claude and Telegram.
+"""Event handlers that bridge the event bus to Codex and Telegram.
 
-AgentHandler: translates events into ClaudeIntegration.run_command() calls.
+AgentHandler: translates events into CodexIntegration.run_command() calls.
 NotificationHandler: subscribes to AgentResponseEvent and delivers to Telegram.
 """
 
@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 
 import structlog
 
-from ..claude.facade import ClaudeIntegration
+from ..codex.facade import CodexIntegration
 from .bus import Event, EventBus
 from .types import AgentResponseEvent, ScheduledEvent, WebhookEvent
 
@@ -17,22 +17,22 @@ logger = structlog.get_logger()
 
 
 class AgentHandler:
-    """Translates incoming events into Claude agent executions.
+    """Translates incoming events into Codex agent executions.
 
     Webhook and scheduled events are converted into prompts and sent
-    to ClaudeIntegration.run_command(). The response is published
+    to CodexIntegration.run_command(). The response is published
     back as an AgentResponseEvent for delivery.
     """
 
     def __init__(
         self,
         event_bus: EventBus,
-        claude_integration: ClaudeIntegration,
+        codex_integration: CodexIntegration,
         default_working_directory: Path,
         default_user_id: int = 0,
     ) -> None:
         self.event_bus = event_bus
-        self.claude = claude_integration
+        self.codex = codex_integration
         self.default_working_directory = default_working_directory
         self.default_user_id = default_user_id
 
@@ -42,7 +42,7 @@ class AgentHandler:
         self.event_bus.subscribe(ScheduledEvent, self.handle_scheduled)
 
     async def handle_webhook(self, event: Event) -> None:
-        """Process a webhook event through Claude."""
+        """Process a webhook event through Codex."""
         if not isinstance(event, WebhookEvent):
             return
 
@@ -56,7 +56,7 @@ class AgentHandler:
         prompt = self._build_webhook_prompt(event)
 
         try:
-            response = await self.claude.run_command(
+            response = await self.codex.run_command(
                 prompt=prompt,
                 working_directory=self.default_working_directory,
                 user_id=self.default_user_id,
@@ -82,7 +82,7 @@ class AgentHandler:
             )
 
     async def handle_scheduled(self, event: Event) -> None:
-        """Process a scheduled event through Claude."""
+        """Process a scheduled event through Codex."""
         if not isinstance(event, ScheduledEvent):
             return
 
@@ -101,7 +101,7 @@ class AgentHandler:
         working_dir = event.working_directory or self.default_working_directory
 
         try:
-            response = await self.claude.run_command(
+            response = await self.codex.run_command(
                 prompt=prompt,
                 working_directory=working_dir,
                 user_id=self.default_user_id,
@@ -134,7 +134,7 @@ class AgentHandler:
             )
 
     def _build_webhook_prompt(self, event: WebhookEvent) -> str:
-        """Build a Claude prompt from a webhook event."""
+        """Build a Codex prompt from a webhook event."""
         payload_summary = self._summarize_payload(event.payload)
 
         return (

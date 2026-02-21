@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 import structlog
 
-from ..claude.sdk_integration import ClaudeResponse
+from ..codex.sdk_integration import CodexResponse
 from .database import DatabaseManager
 from .models import (
     AuditLogModel,
@@ -63,17 +63,17 @@ class Storage:
 
     # High-level operations
 
-    async def save_claude_interaction(
+    async def save_codex_interaction(
         self,
         user_id: int,
         session_id: str,
         prompt: str,
-        response: ClaudeResponse,
+        response: CodexResponse,
         ip_address: Optional[str] = None,
     ):
-        """Save complete Claude interaction."""
+        """Save complete Codex interaction."""
         logger.info(
-            "Saving Claude interaction",
+            "Saving Codex interaction",
             user_id=user_id,
             session_id=session_id,
             cost=response.cost,
@@ -133,7 +133,7 @@ class Storage:
         audit_event = AuditLogModel(
             id=None,
             user_id=user_id,
-            event_type="claude_interaction",
+            event_type="codex_interaction",
             event_data={
                 "session_id": session_id,
                 "cost": response.cost,

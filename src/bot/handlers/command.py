@@ -7,13 +7,19 @@ import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from ...claude.facade import ClaudeIntegration
+from ...codex.facade import CodexIntegration
 from ...config.settings import Settings
 from ...projects import PrivateTopicsUnavailableError, load_project_registry
 from ...security.audit import AuditLogger
 from ...security.validators import SecurityValidator
 from ..utils.html_format import escape_html
 from ..utils.runtime_health import get_codex_runtime_health
+from ..utils.session_keys import (
+    clear_session_id,
+    get_integration,
+    get_session_id,
+    set_session_id,
+)
 
 logger = structlog.get_logger()
 
@@ -313,10 +319,10 @@ async def new_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     relative_path = current_dir.relative_to(settings.approved_directory)
 
     # Track what was cleared for user feedback
-    old_session_id = context.user_data.get("claude_session_id")
+    old_session_id = get_session_id(context.user_data)
 
     # Clear existing session data - this is the explicit way to reset context
-    context.user_data["claude_session_id"] = None
+    clear_session_id(context.user_data)
     context.user_data["session_started"] = True
     context.user_data["force_new_session"] = True
 
@@ -358,7 +364,7 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Handle /continue command with optional prompt."""
     user_id = update.effective_user.id
     settings: Settings = context.bot_data["settings"]
-    claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
+    codex_integration: CodexIntegration = get_integration(context.bot_data)
     audit_logger: AuditLogger = context.bot_data.get("audit_logger")
 
     # Parse optional prompt from command arguments
@@ -371,7 +377,7 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
 
     try:
-        if not claude_integration:
+        if not codex_integration:
             await update.message.reply_text(
                 "❌ <b>Codex Integration Not Available</b>\n\n"
                 "Codex integration is not properly configured."
@@ -379,25 +385,25 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
 
         # Check if there's an existing session in user context
-        claude_session_id = context.user_data.get("claude_session_id")
+        codex_session_id = get_session_id(context.user_data)
 
-        if claude_session_id:
+        if codex_session_id:
             # We have a session in context, continue it directly
             status_msg = await update.message.reply_text(
                 f"🔄 <b>Continuing Session</b>\n\n"
-                f"Session ID: <code>{claude_session_id[:8]}...</code>\n"
+                f"Session ID: <code>{codex_session_id[:8]}...</code>\n"
                 f"Directory: <code>{current_dir.relative_to(settings.approved_directory)}/</code>\n\n"
                 f"{'Processing your message...' if prompt else 'Continuing where you left off...'}",
                 parse_mode="HTML",
             )
 
             # Continue with the existing session
-            # Use default prompt if none provided (Claude CLI requires a prompt)
-            claude_response = await claude_integration.run_command(
+            # Use default prompt if none provided (Codex CLI requires a prompt)
+            codex_response = await codex_integration.run_command(
                 prompt=prompt or default_prompt,
                 working_directory=current_dir,
                 user_id=user_id,
-                session_id=claude_session_id,
+                session_id=codex_session_id,
             )
         else:
             # No session in context, try to find the most recent session
@@ -408,25 +414,25 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
 
             # Use default prompt if none provided
-            claude_response = await claude_integration.continue_session(
+            codex_response = await codex_integration.continue_session(
                 user_id=user_id,
                 working_directory=current_dir,
                 prompt=prompt or default_prompt,
             )
 
-        if claude_response:
+        if codex_response:
             # Update session ID in context
-            context.user_data["claude_session_id"] = claude_response.session_id
+            set_session_id(context.user_data, codex_response.session_id)
 
             # Delete status message and send response
             await status_msg.delete()
 
-            # Format and send Claude's response
+            # Format and send Codex's response
             from ..utils.formatting import ResponseFormatter
 
             formatter = ResponseFormatter(settings)
-            formatted_messages = formatter.format_claude_response(
-                claude_response.content
+            formatted_messages = formatter.format_codex_response(
+                codex_response.content
             )
 
             for msg in formatted_messages:
@@ -685,23 +691,21 @@ async def change_directory(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         context.user_data["current_directory"] = resolved_path
 
         # Look up existing session for the new directory instead of clearing
-        claude_integration: ClaudeIntegration = context.bot_data.get(
-            "claude_integration"
-        )
+        codex_integration: CodexIntegration = get_integration(context.bot_data)
         resumed_session_info = ""
-        if claude_integration:
-            existing_session = await claude_integration._find_resumable_session(
+        if codex_integration:
+            existing_session = await codex_integration._find_resumable_session(
                 user_id, resolved_path
             )
             if existing_session:
-                context.user_data["claude_session_id"] = existing_session.session_id
+                set_session_id(context.user_data, existing_session.session_id)
                 resumed_session_info = (
                     f"\n🔄 Resumed session <code>{existing_session.session_id[:8]}...</code> "
                     f"({existing_session.message_count} messages)"
                 )
             else:
                 # No session for this directory - clear the current one
-                context.user_data["claude_session_id"] = None
+                clear_session_id(context.user_data)
                 resumed_session_info = (
                     "\n🆕 No existing session. Send a message to start a new one."
                 )
@@ -864,7 +868,7 @@ async def session_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     settings: Settings = context.bot_data["settings"]
 
     # Get session info
-    claude_session_id = context.user_data.get("claude_session_id")
+    codex_session_id = get_session_id(context.user_data)
     current_dir = context.user_data.get(
         "current_directory", settings.approved_directory
     )
@@ -887,12 +891,10 @@ async def session_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Check if there's a resumable session from the database
     resumable_info = ""
-    if not claude_session_id:
-        claude_integration: ClaudeIntegration = context.bot_data.get(
-            "claude_integration"
-        )
-        if claude_integration:
-            existing = await claude_integration._find_resumable_session(
+    if not codex_session_id:
+        codex_integration: CodexIntegration = get_integration(context.bot_data)
+        if codex_integration:
+            existing = await codex_integration._find_resumable_session(
                 user_id, current_dir
             )
             if existing:
@@ -926,22 +928,22 @@ async def session_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "📊 <b>Session Status</b>",
         "",
         f"📂 Directory: <code>{relative_path}/</code>",
-        f"🤖 Codex Session: {'✅ Active' if claude_session_id else '❌ None'}",
+        f"🤖 Codex Session: {'✅ Active' if codex_session_id else '❌ None'}",
         codex_cli_line,
         auth_line,
         usage_info.rstrip(),
         f"🕐 Last Update: {update.message.date.strftime('%H:%M:%S UTC')}",
     ]
 
-    if claude_session_id:
-        status_lines.append(f"🆔 Session ID: <code>{claude_session_id[:8]}...</code>")
+    if codex_session_id:
+        status_lines.append(f"🆔 Session ID: <code>{codex_session_id[:8]}...</code>")
     elif resumable_info:
         status_lines.append(resumable_info)
         status_lines.append("💡 Session will auto-resume on your next message")
 
     # Add action buttons
     keyboard = []
-    if claude_session_id:
+    if codex_session_id:
         keyboard.append(
             [
                 InlineKeyboardButton("🔄 Continue", callback_data="action:continue"),
@@ -994,9 +996,9 @@ async def export_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     # Get current session
-    claude_session_id = context.user_data.get("claude_session_id")
+    codex_session_id = get_session_id(context.user_data)
 
-    if not claude_session_id:
+    if not codex_session_id:
         await update.message.reply_text(
             "❌ <b>No Active Session</b>\n\n"
             "There's no active Codex session to export.\n\n"
@@ -1022,7 +1024,7 @@ async def export_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await update.message.reply_text(
         "📤 <b>Export Session</b>\n\n"
-        f"Ready to export session: <code>{claude_session_id[:8]}...</code>\n\n"
+        f"Ready to export session: <code>{codex_session_id[:8]}...</code>\n\n"
         "<b>Choose export format:</b>",
         parse_mode="HTML",
         reply_markup=reply_markup,
@@ -1035,9 +1037,9 @@ async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     settings: Settings = context.bot_data["settings"]
 
     # Check if there's an active session
-    claude_session_id = context.user_data.get("claude_session_id")
+    codex_session_id = get_session_id(context.user_data)
 
-    if not claude_session_id:
+    if not codex_session_id:
         await update.message.reply_text(
             "ℹ️ <b>No Active Session</b>\n\n"
             "There's no active Codex session to end.\n\n"
@@ -1055,7 +1057,7 @@ async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     relative_path = current_dir.relative_to(settings.approved_directory)
 
     # Clear session data
-    context.user_data["claude_session_id"] = None
+    clear_session_id(context.user_data)
     context.user_data["session_started"] = False
     context.user_data["last_message"] = None
 
@@ -1089,7 +1091,7 @@ async def end_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         reply_markup=reply_markup,
     )
 
-    logger.info("Session ended by user", user_id=user_id, session_id=claude_session_id)
+    logger.info("Session ended by user", user_id=user_id, session_id=codex_session_id)
 
 
 async def quick_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
