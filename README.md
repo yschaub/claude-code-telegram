@@ -212,8 +212,8 @@ ALLOWED_USERS=123456789          # Comma-separated Telegram user IDs
 CODEX_CLI_PATH=/usr/local/bin/codex
 CODEX_MODEL=                      # Optional model override
 CODEX_HOME=/opt/codex-home        # Optional
-CLAUDE_MAX_COST_PER_USER=10.0    # Spending limit per user (USD)
-CLAUDE_TIMEOUT_SECONDS=300       # Operation timeout
+CODEX_MAX_COST_PER_USER=10.0     # Spending limit per user (USD)
+CODEX_TIMEOUT_SECONDS=300        # Operation timeout
 
 # Mode
 AGENTIC_MODE=true                # Agentic (default) or classic mode
@@ -286,10 +286,10 @@ Message [@userinfobot](https://t.me/userinfobot) on Telegram -- it will reply wi
 - Verify `codex --version` works on the host machine
 - Run `codex login status` (must show logged in)
 - If needed, set `CODEX_CLI_PATH`
-- Check `CLAUDE_ALLOWED_TOOLS` includes necessary tools
+- Check `CODEX_ALLOWED_TOOLS` includes necessary tools
 
 **High usage costs:**
-- Adjust `CLAUDE_MAX_COST_PER_USER` to set spending limits
+- Adjust `CODEX_MAX_COST_PER_USER` to set spending limits
 - Monitor usage with `/status`
 - Use shorter, more focused requests
 

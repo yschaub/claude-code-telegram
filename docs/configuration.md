@@ -58,24 +58,30 @@ DISABLE_SECURITY_PATTERNS=false
 DISABLE_TOOL_VALIDATION=false
 ```
 
-#### Claude Configuration
+#### Codex Configuration
 
 ```bash
-# Authentication
-ANTHROPIC_API_KEY=sk-ant-api03-...    # Optional: API key for SDK (uses CLI auth if omitted)
+# Optional codex binary/model overrides
+CODEX_CLI_PATH=/usr/local/bin/codex
+CODEX_MODEL=
 
 # Maximum conversation turns before requiring new session
-CLAUDE_MAX_TURNS=10
+CODEX_MAX_TURNS=10
 
-# Timeout for Claude operations in seconds
-CLAUDE_TIMEOUT_SECONDS=300
+# Timeout for Codex operations in seconds
+CODEX_TIMEOUT_SECONDS=300
 
 # Maximum cost per user in USD
-CLAUDE_MAX_COST_PER_USER=10.0
+CODEX_MAX_COST_PER_USER=10.0
 
-# Allowed Claude tools (comma-separated list; see docs/tools.md for descriptions)
-CLAUDE_ALLOWED_TOOLS=Read,Write,Edit,Bash,Glob,Grep,LS,Task,TaskOutput,MultiEdit,NotebookRead,NotebookEdit,WebFetch,TodoRead,TodoWrite,WebSearch
+# Allowed Codex tools (comma-separated list; see docs/tools.md for descriptions)
+CODEX_ALLOWED_TOOLS=Read,Write,Edit,Bash,Glob,Grep,LS,Task,TaskOutput,MultiEdit,NotebookRead,NotebookEdit,WebFetch,TodoRead,TodoWrite,WebSearch
+
+# Explicitly disallowed Codex tools (optional)
+CODEX_DISALLOWED_TOOLS=
 ```
+
+> Legacy `CLAUDE_*` env vars are still accepted as aliases for backward compatibility.
 
 #### Rate Limiting
 
@@ -233,7 +239,7 @@ Activated when `ENVIRONMENT=development` or when `DEBUG=true`:
 - `development_mode = true`
 - `log_level = "DEBUG"`
 - `rate_limit_requests = 100` (more lenient)
-- `claude_timeout_seconds = 600` (longer timeout)
+- `codex_timeout_seconds = 600` (longer timeout)
 - `enable_telemetry = false`
 
 ### Testing Environment
@@ -243,7 +249,7 @@ Activated when `ENVIRONMENT=testing`:
 - `debug = true`
 - `database_url = "sqlite:///:memory:"` (in-memory database)
 - `approved_directory = "/tmp/test_projects"`
-- `claude_timeout_seconds = 30` (faster timeout)
+- `codex_timeout_seconds = 30` (faster timeout)
 - `rate_limit_requests = 1000` (no effective rate limiting)
 
 ### Production Environment
@@ -253,7 +259,7 @@ Activated when `ENVIRONMENT=production`:
 - `debug = false`
 - `log_level = "INFO"`
 - `enable_telemetry = true`
-- `claude_max_cost_per_user = 5.0` (stricter cost limit)
+- `codex_max_cost_per_user = 5.0` (stricter cost limit)
 - `rate_limit_requests = 5` (stricter rate limiting)
 - `session_timeout_hours = 12` (shorter session timeout)
 

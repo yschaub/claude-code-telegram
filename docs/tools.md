@@ -1,12 +1,12 @@
 # Available Tools
 
-This document describes the tools that Claude Code can use when interacting through the Telegram bot. Tools are the operations Claude performs behind the scenes to read, write, search, and execute code on your behalf.
+This document describes the tools that Codex can use when interacting through the Telegram bot. Tools are the operations Codex performs behind the scenes to read, write, search, and execute code on your behalf.
 
 ## Overview
 
-By default, the bot allows **16 tools**. These are configured via the `CLAUDE_ALLOWED_TOOLS` environment variable and validated at runtime by the [ToolMonitor](../src/claude/monitor.py).
+By default, the bot allows **16 tools**. These are configured via the `CODEX_ALLOWED_TOOLS` environment variable and validated at runtime by the [Tool Authorizer](../src/claude/tool_authorizer.py).
 
-When Claude uses a tool during a conversation, the tool name appears in real-time if verbose output is enabled (`/verbose 1` or `/verbose 2`). If Claude attempts to use a tool that is not in the allowed list, the bot blocks the call and displays an error with the list of currently allowed tools.
+When Codex uses a tool during a conversation, the tool name appears in real-time if verbose output is enabled (`/verbose 1` or `/verbose 2`). If Codex attempts to use a tool that is not in the allowed list, the bot blocks the call and displays an error with the list of currently allowed tools.
 
 ## Tool Reference
 
@@ -63,7 +63,7 @@ When Claude uses a tool during a conversation, the tool name appears in real-tim
 
 ## Verbose Output
 
-When verbose output is enabled, each tool call is shown with its icon as Claude works:
+When verbose output is enabled, each tool call is shown with its icon as Codex works:
 
 ```
 You: Add type hints to utils.py
@@ -73,7 +73,7 @@ Bot: Working... (5s)
      💬 I'll add type annotations to all functions
      ✏️ Edit: utils.py
      💻 Bash: poetry run mypy src/utils.py
-Bot: [Claude shows the changes and type-check results]
+Bot: [Codex shows the changes and type-check results]
 ```
 
 Control verbosity with `/verbose`:
@@ -92,10 +92,10 @@ The default allowed tools list is defined in `src/config/settings.py` and can be
 
 ```bash
 # Allow only specific tools (comma-separated)
-CLAUDE_ALLOWED_TOOLS=Read,Write,Edit,Bash,Glob,Grep,LS,Task,TaskOutput,MultiEdit,NotebookRead,NotebookEdit,WebFetch,TodoRead,TodoWrite,WebSearch
+CODEX_ALLOWED_TOOLS=Read,Write,Edit,Bash,Glob,Grep,LS,Task,TaskOutput,MultiEdit,NotebookRead,NotebookEdit,WebFetch,TodoRead,TodoWrite,WebSearch
 
 # Explicitly block specific tools (comma-separated, takes precedence over allowed)
-CLAUDE_DISALLOWED_TOOLS=Bash,Write
+CODEX_DISALLOWED_TOOLS=Bash,Write
 ```
 
 To allow all tools without name-based validation:

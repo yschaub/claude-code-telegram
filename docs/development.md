@@ -221,12 +221,12 @@ def test_feature_with_config():
     """Test feature with specific configuration."""
     config = create_test_config(
         debug=True,
-        claude_max_turns=5
+        codex_max_turns=5
     )
     
     # Test implementation
     assert config.debug is True
-    assert config.claude_max_turns == 5
+    assert config.codex_max_turns == 5
 
 @pytest.mark.asyncio
 async def test_async_feature():

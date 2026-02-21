@@ -7,36 +7,18 @@
 - **Python 3.11+** -- [Download here](https://www.python.org/downloads/)
 - **Poetry** -- Modern Python dependency management
 - **Telegram Bot Token** -- Get one from [@BotFather](https://t.me/botfather)
-- **Claude Authentication** -- Choose one method below
+- **Codex Authentication** -- `codex login`
 
-### 2. Claude Authentication Setup
+### 2. Codex Authentication Setup
 
-The bot uses the Claude Code Python SDK. Choose your authentication method:
-
-#### Option A: CLI Authentication (Recommended)
-
-Uses the SDK with your existing Claude CLI credentials.
+The bot runs through the Codex CLI. Authenticate once on the host machine:
 
 ```bash
-# 1. Install Claude CLI (https://claude.ai/code)
-# 2. Authenticate
-claude auth login
+# Install Codex CLI if needed, then authenticate
+codex login
 
-# 3. Verify
-claude auth status
-# Should show: "You are authenticated"
-
-# No ANTHROPIC_API_KEY needed — SDK uses CLI credentials
-```
-
-#### Option B: Direct API Key
-
-Uses the SDK with a direct API key, no CLI auth needed.
-
-```bash
-# 1. Get your API key from https://console.anthropic.com/
-# 2. Configure bot
-ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+# Verify
+codex login status
 ```
 
 ### 3. Install the Bot
@@ -80,7 +62,7 @@ make run          # Production
 
 1. Find your bot on Telegram (search for your bot username)
 2. Send `/start` to begin
-3. Try asking Claude a question about your project
+3. Try asking Codex a question about your project
 4. Use `/status` to check session info
 
 ## Agentic Platform Setup
@@ -89,7 +71,7 @@ The bot includes an event-driven platform for webhooks, scheduled jobs, and proa
 
 ### Webhook API Server
 
-Enable to receive external webhooks (GitHub, etc.) and route them through Claude:
+Enable to receive external webhooks (GitHub, etc.) and route them through Codex:
 
 ```bash
 ENABLE_API_SERVER=true
@@ -145,7 +127,7 @@ curl -X POST http://localhost:8080/webhooks/custom \
 
 ### Job Scheduler
 
-Enable to run recurring Claude tasks on a cron schedule:
+Enable to run recurring Codex tasks on a cron schedule:
 
 ```bash
 ENABLE_SCHEDULER=true
@@ -163,14 +145,6 @@ NOTIFICATION_CHAT_IDS=123456789,987654321
 ```
 
 ## Advanced Configuration
-
-### Authentication Methods Comparison
-
-| Feature | SDK + CLI Auth | SDK + API Key |
-|---------|----------------|---------------|
-| Performance | Best | Best |
-| CLI Required | Yes | No |
-| Streaming | Yes | Yes |
 
 ### Security Configuration
 
@@ -196,7 +170,7 @@ AUTH_TOKEN_SECRET=your-secret-key-here
 RATE_LIMIT_REQUESTS=10
 RATE_LIMIT_WINDOW=60
 RATE_LIMIT_BURST=20
-CLAUDE_MAX_COST_PER_USER=10.0
+CODEX_MAX_COST_PER_USER=10.0
 ```
 
 ### Development Setup
@@ -207,12 +181,12 @@ DEVELOPMENT_MODE=true
 LOG_LEVEL=DEBUG
 ENVIRONMENT=development
 RATE_LIMIT_REQUESTS=100
-CLAUDE_TIMEOUT_SECONDS=600
+CODEX_TIMEOUT_SECONDS=600
 ```
 
 ## Running on a Remote Mac (SSH)
 
-If you're running the bot on a remote Mac Mini (or any Mac accessed via SSH), Claude Code's OAuth tokens stored in the macOS keychain will be inaccessible because the keychain is locked in SSH sessions. This causes Claude invocations to fail silently or with authentication errors.
+If you're running the bot on a remote Mac Mini (or any Mac accessed via SSH), Codex OAuth tokens stored in the macOS keychain will be inaccessible because the keychain is locked in SSH sessions. This causes Codex invocations to fail silently or with authentication errors.
 
 ### Quick Start: `make run-remote`
 
@@ -248,10 +222,6 @@ By default the keychain re-locks after a short idle period. Set it to 8 hours:
 security set-keychain-settings -t 28800 ~/Library/Keychains/login.keychain-db
 ```
 
-### Alternative: Use an API Key Instead
-
-Bypass the keychain entirely by using a direct API key (Option B in the authentication section above). Set `ANTHROPIC_API_KEY` in your `.env` and the keychain is never consulted.
-
 ## Troubleshooting
 
 ### Bot doesn't respond
@@ -264,18 +234,11 @@ echo $TELEGRAM_BOT_TOKEN
 make run-debug
 ```
 
-### Claude authentication issues
+### Codex authentication issues
 
-**SDK + CLI Auth:**
 ```bash
-claude auth status
-# If not authenticated: claude auth login
-```
-
-**SDK + API Key:**
-```bash
-# Verify key starts with: sk-ant-api03-
-echo $ANTHROPIC_API_KEY
+codex login status
+# If not authenticated: codex login
 ```
 
 ### Permission errors
@@ -291,7 +254,7 @@ ENVIRONMENT=production
 DEBUG=false
 LOG_LEVEL=INFO
 RATE_LIMIT_REQUESTS=5
-CLAUDE_MAX_COST_PER_USER=5.0
+CODEX_MAX_COST_PER_USER=5.0
 SESSION_TIMEOUT_HOURS=12
 ENABLE_TELEMETRY=true
 ```
