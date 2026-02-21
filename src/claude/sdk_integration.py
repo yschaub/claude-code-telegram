@@ -381,6 +381,10 @@ class ClaudeSDKManager:
         if model:
             cmd.extend(["--model", model])
 
+        max_budget_usd = getattr(self.config, "codex_max_budget_usd", None)
+        if max_budget_usd is not None:
+            cmd.extend(["-c", f"max_budget_usd={float(max_budget_usd)}"])
+
         extra_args = getattr(self.config, "codex_extra_args", None) or []
         if is_resume:
             # `codex exec resume` rejects `--sandbox`; strip it even if provided

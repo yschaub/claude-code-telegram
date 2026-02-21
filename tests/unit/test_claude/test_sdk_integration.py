@@ -204,6 +204,31 @@ class TestClaudeSDKManager:
         assert "--search" in called_cmd
         assert "--output-last-message" not in called_cmd
 
+    async def test_execute_command_applies_max_budget_config(
+        self, manager: ClaudeSDKManager
+    ):
+        manager.config.codex_max_budget_usd = 0.25
+        called_cmd = []
+
+        async def _create_process(*cmd, **kwargs):
+            called_cmd.extend(list(cmd))
+            return _MockProcess(
+                stdout_lines=[b'{"type":"response.output_text.delta","delta":"ok"}\n'],
+                returncode=0,
+            )
+
+        with patch(
+            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            side_effect=_create_process,
+        ):
+            await manager.execute_command(
+                prompt="hello",
+                working_directory=Path("/tmp"),
+            )
+
+        assert "-c" in called_cmd
+        assert "max_budget_usd=0.25" in called_cmd
+
     async def test_execute_command_stream_callback(self, manager: ClaudeSDKManager):
         updates = []
 

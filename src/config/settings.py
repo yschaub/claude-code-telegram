@@ -82,6 +82,11 @@ class Settings(BaseSettings):
         description="Extra CLI flags to pass to codex exec (advanced use only)",
         validation_alias=AliasChoices("CODEX_EXTRA_ARGS"),
     )
+    codex_max_budget_usd: Optional[float] = Field(
+        None,
+        description="Optional per-request Codex budget cap in USD",
+        validation_alias=AliasChoices("CODEX_MAX_BUDGET_USD"),
+    )
     codex_full_auto: bool = Field(
         True,
         description="Enable Codex full-auto mode for non-interactive execution",
@@ -297,6 +302,16 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.strip():
             return None
         return v  # type: ignore[no-any-return]
+
+    @field_validator("codex_max_budget_usd")
+    @classmethod
+    def validate_codex_max_budget_usd(cls, v: Optional[float]) -> Optional[float]:
+        """Ensure optional per-request budget, when set, is positive."""
+        if v is None:
+            return None
+        if v <= 0:
+            raise ValueError("codex_max_budget_usd must be positive")
+        return v
 
     @field_validator("approved_directory")
     @classmethod
