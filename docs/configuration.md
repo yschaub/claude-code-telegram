@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This document provides comprehensive information about configuring the Codex Code Telegram Bot.
+This document provides comprehensive information about configuring the Codex Telegram Bot.
 
 ## Overview
 
@@ -80,8 +80,6 @@ CODEX_ALLOWED_TOOLS=Read,Write,Edit,Bash,Glob,Grep,LS,Task,TaskOutput,MultiEdit,
 # Explicitly disallowed Codex tools (optional)
 CODEX_DISALLOWED_TOOLS=
 ```
-
-> Legacy `CODEX_*` env vars are still accepted as aliases for backward compatibility.
 
 #### Rate Limiting
 
@@ -322,13 +320,10 @@ The configuration system performs extensive validation:
 
 #### Option 1: Use Existing Codex CLI Authentication (Recommended)
 ```bash
-# No ANTHROPIC_API_KEY needed - SDK will use CLI credentials
-# Ensure Codex CLI is installed and authenticated: codex auth login
-```
-
-#### Option 2: Direct API Key
-```bash
-ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+# No API key environment variable needed.
+# Ensure Codex CLI is installed and authenticated:
+codex login
+codex login status
 ```
 
 ## Troubleshooting

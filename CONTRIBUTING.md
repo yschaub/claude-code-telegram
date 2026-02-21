@@ -24,8 +24,8 @@ This project is currently under active development with the following status:
 
 1. **Fork and clone the repository**:
    ```bash
-   git clone https://github.com/your-username/codex-code-telegram.git
-   cd codex-code-telegram
+   git clone https://github.com/yschaub/claude-code-telegram.git
+   cd claude-code-telegram
    ```
 
 2. **Install dependencies**:

@@ -1,24 +1,22 @@
 # Development Guide
 
-This document provides detailed information for developers working on the Codex Code Telegram Bot.
+This document provides detailed information for developers working on the Codex Telegram Bot.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.9 or higher
+- Python 3.11 or higher
 - Poetry for dependency management
 - Git for version control
-- Codex authentication (one of):
-  - Codex Code CLI installed and authenticated
-  - Anthropic API key for direct SDK usage
+- Codex CLI installed and authenticated (`codex login`)
 
 ### Initial Setup
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
-   cd codex-code-telegram
+   git clone https://github.com/yschaub/claude-code-telegram.git
+   cd claude-code-telegram
    ```
 
 2. **Install Poetry** (if not already installed):
@@ -98,12 +96,11 @@ src/
 │   ├── handlers/     # Command and message handlers
 │   ├── middleware/   # Authentication and rate limiting
 │   └── utils/        # Response formatting utilities
-├── codex/           # Codex Code integration (✅ Complete)
+├── codex/           # Codex CLI integration (✅ Complete)
 │   ├── __init__.py
-│   ├── integration.py # Subprocess management
-│   ├── parser.py     # Output parsing and formatting
+│   ├── sdk_integration.py # Codex CLI process + JSON event handling
 │   ├── session.py    # Session management
-│   ├── monitor.py    # Tool usage monitoring
+│   ├── tool_authorizer.py # Tool allow/disallow + safety checks
 │   ├── facade.py     # High-level integration API
 │   └── exceptions.py # Codex-specific exceptions
 ├── storage/          # Database and persistence (✅ Complete)
@@ -285,7 +282,7 @@ We aim for >80% test coverage. Current coverage:
 - Inline keyboard support for user interactions
 - Error handling middleware with user-friendly messages
 
-#### TODO-5: Codex Code Integration
+#### TODO-5: Codex CLI Integration
 - Async subprocess management for Codex CLI with timeout handling
 - Response streaming and parsing for real-time updates
 - Session state persistence with context maintenance
@@ -332,10 +329,10 @@ TELEGRAM_BOT_TOKEN=test_token_for_development
 TELEGRAM_BOT_USERNAME=test_bot
 APPROVED_DIRECTORY=/path/to/your/test/projects
 
-# Codex Authentication (choose one method)
-# Option 1: Use existing Codex CLI auth (no API key needed)
-# Option 2: Direct API key
-# ANTHROPIC_API_KEY=sk-ant-api03-your-development-key
+# Codex Authentication (required)
+# Ensure Codex CLI is authenticated:
+# codex login
+# codex login status
 
 # Development settings
 DEBUG=true

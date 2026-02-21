@@ -1,7 +1,7 @@
 # Codex Telegram Bot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 A Telegram bot that gives you remote access to Codex CLI. Chat naturally with Codex about your projects from anywhere -- no terminal commands needed.
 
@@ -33,7 +33,7 @@ Bot: Running pytest...
 
 ### 1. Prerequisites
 
-- **Python 3.10+** -- [Download here](https://www.python.org/downloads/)
+- **Python 3.11+** -- [Download here](https://www.python.org/downloads/)
 - **Poetry** -- Modern Python dependency management
 - **Codex CLI** -- Install and authenticate on the host machine (`codex login`)
 - **Telegram Bot Token** -- Get one from [@BotFather](https://t.me/botfather)
@@ -41,8 +41,8 @@ Bot: Running pytest...
 ### 2. Install
 
 ```bash
-git clone https://github.com/RichardAtCT/codex-code-telegram.git
-cd codex-code-telegram
+git clone https://github.com/yschaub/claude-code-telegram.git
+cd claude-code-telegram
 make dev
 ```
 
@@ -323,7 +323,7 @@ make run-debug     # Run with debug logging
 3. Make changes with tests: `make test && make lint`
 4. Submit a Pull Request
 
-**Code standards:** Python 3.10+, Black formatting (88 chars), type hints required, pytest with >85% coverage.
+**Code standards:** Python 3.11+, Black formatting (88 chars), type hints required, pytest with >85% coverage.
 
 ## License
 
@@ -331,5 +331,6 @@ MIT License -- see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [Codex](https://codex.ai) by Anthropic
+- Original upstream project: [RichardAtCT/claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)
+- [OpenAI Codex CLI](https://github.com/openai/codex)
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)

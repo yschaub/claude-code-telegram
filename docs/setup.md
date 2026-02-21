@@ -24,8 +24,8 @@ codex login status
 ### 3. Install the Bot
 
 ```bash
-git clone https://github.com/RichardAtCT/codex-code-telegram.git
-cd codex-code-telegram
+git clone https://github.com/yschaub/claude-code-telegram.git
+cd claude-code-telegram
 make dev
 ```
 
@@ -264,4 +264,4 @@ ENABLE_TELEMETRY=true
 - **Documentation**: Check the main [README.md](../README.md)
 - **Configuration**: See [configuration.md](configuration.md) for all options
 - **Security**: See [SECURITY.md](../SECURITY.md) for security concerns
-- **Issues**: [Open an issue](https://github.com/RichardAtCT/codex-code-telegram/issues)
+- **Issues**: [Open an issue](https://github.com/yschaub/claude-code-telegram/issues)

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- No changes yet.
+
+## [1.0.0] - 2026-02-21
+
+### Release Notes
+- Initial Codex-first release of this repository.
+- Based on the original upstream project: https://github.com/RichardAtCT/claude-code-telegram
+- Fork lineage for this repo: https://github.com/yschaub/claude-code-telegram
+
 ### Added
 - **Agentic Mode** (default interaction model):
   - `MessageOrchestrator` routes messages to agentic (3 commands) or classic (13 commands) handlers based on `AGENTIC_MODE` setting
@@ -33,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Broadcast to configurable default chat IDs
 - **Database Migration 3**: `scheduled_jobs` and `webhook_events` tables, WAL mode enabled
 - **Automatic Session Resumption**: Sessions are now automatically resumed per user+directory
-  - SDK integration passes `resume` parameter to Codex Code for real session continuity
+  - Integration passes `resume` to Codex CLI for real session continuity
   - Session IDs extracted from Codex's `ResultMessage` instead of generated locally
   - `/cd` looks up and resumes existing sessions for the target directory
   - Auto-resume from SQLite database survives bot restarts
@@ -64,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session commands: /new, /continue, /status for Codex sessions
 - File upload support, progress indicators, response formatting
 
-#### Codex Code Integration (TODO-5) - 2025-06-06
+#### Codex CLI Integration (TODO-5) - 2025-06-06
 - Async process execution with timeout handling
 - Session state management and cross-conversation continuity
 - Streaming JSON output parsing, tool call extraction
@@ -98,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TODO-2**: Configuration Management -- Complete
 - **TODO-3**: Authentication & Security Framework -- Complete
 - **TODO-4**: Telegram Bot Core -- Complete
-- **TODO-5**: Codex Code Integration -- Complete
+- **TODO-5**: Codex CLI Integration -- Complete
 - **TODO-6**: Storage & Persistence -- Complete
 - **TODO-7**: Advanced Features -- Complete (agentic platform, webhooks, scheduler, notifications)
 - **TODO-8**: Complete Testing Suite -- In progress

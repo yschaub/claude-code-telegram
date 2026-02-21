@@ -1,21 +1,21 @@
-# Codex Code Telegram Bot -- Project Overview
+# Codex Telegram Bot -- Project Overview
 
 ## Project Description
 
-A Telegram bot that provides remote access to Codex Code, allowing developers to interact with their projects from anywhere. The default interaction model is **agentic mode** -- a conversational interface where users chat naturally with Codex. A classic terminal-like mode with 13 commands is also available.
+A Telegram bot that provides remote access to Codex CLI, allowing developers to interact with their projects from anywhere. The default interaction model is **agentic mode** -- a conversational interface where users chat naturally with Codex. A classic terminal-like mode with 13 commands is also available.
 
 ## Core Objectives
 
-1. **Remote Development Access**: Enable developers to use Codex Code from any device with Telegram
+1. **Remote Development Access**: Enable developers to use Codex from any device with Telegram
 2. **Security-First Design**: Implement robust security boundaries to prevent unauthorized access
 3. **Conversational Interface**: Natural language interaction as the primary mode (agentic mode)
-4. **Session Persistence**: Maintain Codex Code context across conversations and project switches
+4. **Session Persistence**: Maintain Codex context across conversations and project switches
 5. **Event-Driven Automation**: Support webhooks, scheduled jobs, and proactive notifications
 
 ## Target Users
 
 - Developers who need coding assistance while mobile
-- Teams wanting shared Codex Code access
+- Teams wanting shared Codex access
 - Users who prefer chat-based interfaces for development tasks
 - Developers managing multiple projects remotely
 
@@ -40,8 +40,8 @@ A Telegram bot that provides remote access to Codex Code, allowing developers to
 - **Job Scheduler**: APScheduler cron jobs with persistent storage
 - **Notifications**: Rate-limited Telegram delivery for agent responses
 
-### Codex Code Integration
-- Full Codex Code SDK integration (CLI fallback)
+### Codex CLI Integration
+- Full Codex CLI integration via non-interactive `codex exec`
 - Session management per user/project
 - Tool usage visibility
 - Cost tracking and limits
@@ -70,7 +70,7 @@ A Telegram bot that provides remote access to Codex Code, allowing developers to
    - Input validation and security middleware
 
 4. **Codex Integration** (`src/codex/`)
-   - SDK and CLI backends via facade pattern
+   - CLI-backed facade with structured JSON event parsing
    - Session state management and auto-resume
 
 5. **Storage Layer** (`src/storage/`)

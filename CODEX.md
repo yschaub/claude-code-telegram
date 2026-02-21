@@ -1,10 +1,10 @@
 # CODEX.md
 
-This file provides guidance to Codex Code (codex.ai/code) when working with code in this repository.
+This file provides guidance to Codex when working with code in this repository.
 
 ## Project Overview
 
-Telegram bot providing remote access to Codex Code. Python 3.10+, built with Poetry, using `python-telegram-bot` for Telegram and `codex-agent-sdk` for Codex Code integration.
+Telegram bot providing remote access to Codex CLI. Python 3.11+, built with Poetry, using `python-telegram-bot` for Telegram and a CLI-backed adapter for Codex integration.
 
 ## Commands
 
@@ -26,9 +26,9 @@ poetry run mypy src
 
 ## Architecture
 
-### Codex SDK Integration
+### Codex CLI Integration
 
-`CodexIntegration` (facade in `src/codex/facade.py`) wraps `CodexSDKManager` (`src/codex/sdk_integration.py`), which uses `codex-agent-sdk` with `CodexSDKClient` for async streaming. Session IDs come from Codex's `ResultMessage`, not generated locally.
+`CodexIntegration` (facade in `src/codex/facade.py`) wraps `CodexSDKManager` (`src/codex/sdk_integration.py`), which executes `codex exec` and parses JSON stream events. Session IDs are persisted per user+directory and resumed with `codex exec resume`.
 
 Sessions auto-resume: per user+directory, persisted in SQLite.
 
@@ -39,7 +39,7 @@ Sessions auto-resume: per user+directory, persisted in SQLite.
 ```
 Telegram message -> Security middleware (group -3) -> Auth middleware (group -2)
 -> Rate limit (group -1) -> MessageOrchestrator.agentic_text() (group 10)
--> CodexIntegration.run_command() -> SDK
+-> CodexIntegration.run_command() -> Codex CLI
 -> Response parsed -> Stored in SQLite -> Sent back to Telegram
 ```
 
@@ -71,7 +71,7 @@ context.bot_data["security_validator"]
 - `src/bot/middleware/` -- Auth, rate limit, security input validation
 - `src/bot/features/` -- Git integration, file handling, quick actions, session export
 - `src/bot/orchestrator.py` -- MessageOrchestrator: routes to agentic or classic handlers, project-topic routing
-- `src/codex/` -- Codex integration facade, SDK/CLI managers, session management, tool monitoring
+- `src/codex/` -- Codex integration facade, CLI manager, session management, tool authorization
 - `src/projects/` -- Multi-project support: `registry.py` (YAML project config), `thread_manager.py` (Telegram topic sync/routing)
 - `src/storage/` -- SQLite via aiosqlite, repository pattern (users, sessions, messages, tool_usage, audit_log, cost_tracking, project_threads)
 - `src/security/` -- Multi-provider auth (whitelist + token), input validators (with optional `disable_security_patterns`), rate limiter, audit logging
@@ -86,13 +86,13 @@ context.bot_data["security_validator"]
 
 `SecurityValidator` blocks access to secrets (`.env`, `.ssh`, `id_rsa`, `.pem`) and dangerous shell patterns. Can be relaxed with `DISABLE_SECURITY_PATTERNS=true` (trusted environments only).
 
-`ToolMonitor` validates Codex's tool calls against allowlist/disallowlist, file path boundaries, and dangerous bash patterns. Tool name validation can be bypassed with `DISABLE_TOOL_VALIDATION=true`.
+`ToolAuthorizer` validates Codex's tool calls against allowlist/disallowlist, file path boundaries, and dangerous bash patterns. Tool name validation can be bypassed with `DISABLE_TOOL_VALIDATION=true`.
 
 Webhook authentication: GitHub HMAC-SHA256 signature verification, generic Bearer token for other providers, atomic deduplication via `webhook_events` table.
 
 ### Configuration
 
-Settings loaded from environment variables via Pydantic Settings. Required: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `APPROVED_DIRECTORY`. Key optional: `ALLOWED_USERS` (comma-separated Telegram IDs), `ANTHROPIC_API_KEY`, `ENABLE_MCP`, `MCP_CONFIG_PATH`.
+Settings loaded from environment variables via Pydantic Settings. Required: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `APPROVED_DIRECTORY`. Key optional: `ALLOWED_USERS` (comma-separated Telegram IDs), `ENABLE_MCP`, `MCP_CONFIG_PATH`, `CODEX_CLI_PATH`.
 
 Agentic platform settings: `AGENTIC_MODE` (default true), `ENABLE_API_SERVER`, `API_SERVER_PORT` (default 8080), `GITHUB_WEBHOOK_SECRET`, `WEBHOOK_API_SECRET`, `ENABLE_SCHEDULER`, `NOTIFICATION_CHAT_IDS`.
 
