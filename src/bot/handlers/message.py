@@ -1,6 +1,7 @@
 """Message handlers for non-command inputs."""
 
 import asyncio
+import re
 from typing import Optional
 
 import structlog
@@ -281,6 +282,76 @@ def _format_error_message(error: Exception | str) -> str:
 
 def _format_process_error(error_str: str) -> str:
     """Format a backend process/SDK error with the actual details."""
+    error_lower = error_str.lower()
+
+    if (
+        "401 unauthorized" in error_lower
+        or "missing bearer or basic authentication" in error_lower
+    ):
+        return (
+            "🔑 <b>Codex Authentication Failed</b>\n\n"
+            "The bot process cannot authenticate to Codex.\n\n"
+            "<b>What you can do:</b>\n"
+            "• Run <code>codex login</code> on the same machine/user running the bot\n"
+            "• Verify with <code>codex login status</code>\n"
+            "• Check <code>/status</code> for Codex auth health"
+        )
+
+    if "not logged in" in error_lower:
+        return (
+            "🔑 <b>Codex Not Logged In</b>\n\n"
+            "The backend process is not logged in to Codex.\n\n"
+            "<b>What you can do:</b>\n"
+            "• Run <code>codex login</code>\n"
+            "• Confirm with <code>codex login status</code>\n"
+            "• Retry your message"
+        )
+
+    if "unexpected argument '--sandbox'" in error_lower:
+        return (
+            "⚙️ <b>Codex CLI Flag Mismatch</b>\n\n"
+            "The backend passed a resume-incompatible flag to Codex.\n\n"
+            "<b>What you can do:</b>\n"
+            "• Use <code>/new</code> and retry\n"
+            "• If it persists, restart the bot on the latest code"
+        )
+
+    if "unexpected argument '--output-last-message'" in error_lower:
+        return (
+            "⚙️ <b>Codex CLI Version Mismatch</b>\n\n"
+            "The backend used a flag unsupported by this Codex CLI version.\n\n"
+            "<b>What you can do:</b>\n"
+            "• Update the bot backend\n"
+            "• Retry after restart"
+        )
+
+    if "no last agent message; wrote empty content" in error_lower:
+        return (
+            "🗨️ <b>No Final Assistant Message</b>\n\n"
+            "Codex finished without a final assistant message artifact.\n\n"
+            "<b>What you can do:</b>\n"
+            "• Try the request again\n"
+            "• Use <code>/new</code> if this repeats"
+        )
+
+    if "codex cli exited with status 1" in error_lower:
+        events_match = re.search(r"\(events:\s*([^)]+)\)", error_str)
+        events_hint = ""
+        if events_match:
+            events_hint = (
+                f"\n\n<b>Event trace:</b>\n"
+                f"<code>{escape_html(events_match.group(1))}</code>"
+            )
+        return (
+            "❌ <b>Backend Process Error</b>\n\n"
+            "Codex exited with status 1."
+            f"{events_hint}\n\n"
+            "<b>What you can do:</b>\n"
+            "• Try your request again\n"
+            "• Use /new to start a fresh session\n"
+            "• Check /status for Codex auth/session health"
+        )
+
     safe_error = escape_html(error_str)
     if len(safe_error) > 500:
         safe_error = safe_error[:500] + "..."

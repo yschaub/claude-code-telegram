@@ -12,6 +12,7 @@ from ...config.settings import Settings
 from ...security.audit import AuditLogger
 from ...security.validators import SecurityValidator
 from ..utils.html_format import escape_html
+from ..utils.runtime_health import get_codex_runtime_health
 
 logger = structlog.get_logger()
 
@@ -661,11 +662,33 @@ async def _handle_status_action(query, context: ContextTypes.DEFAULT_TYPE) -> No
         except Exception:
             usage_info = "💰 Usage: <i>Unable to retrieve</i>\n"
 
+    health = await get_codex_runtime_health(context.bot_data)
+    codex_path = health.get("cli_path", "")
+    codex_cli_line = (
+        f"🛠️ Codex CLI: ✅ <code>{escape_html(codex_path)}</code>"
+        if health.get("cli") == "available" and codex_path
+        else "🛠️ Codex CLI: ❌ Not found"
+    )
+
+    auth_state = health.get("auth", "unknown")
+    if auth_state == "logged_in":
+        auth_line = "🔐 Codex Auth: ✅ Logged in"
+    elif auth_state == "not_logged_in":
+        auth_line = "🔐 Codex Auth: ❌ Not logged in"
+    elif auth_state == "timeout":
+        auth_line = "🔐 Codex Auth: ⚠️ Timed out"
+    else:
+        auth_line = (
+            f"🔐 Codex Auth: ⚠️ {escape_html(health.get('auth_detail', 'Unknown'))}"
+        )
+
     status_lines = [
         "📊 <b>Session Status</b>",
         "",
         f"📂 Directory: <code>{escape_html(str(relative_path))}/</code>",
         f"🤖 Claude Session: {'✅ Active' if claude_session_id else '❌ None'}",
+        codex_cli_line,
+        auth_line,
         usage_info.rstrip(),
     ]
 

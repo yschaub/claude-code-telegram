@@ -51,6 +51,19 @@ def setup_logging(debug: bool = False) -> None:
         stream=sys.stdout,
     )
 
+    # Keep normal runs readable; allow deep third-party logs only in --debug mode.
+    noisy_loggers = (
+        "httpx",
+        "httpcore",
+        "telegram",
+        "telegram.ext",
+        "apscheduler",
+        "aiosqlite",
+    )
+    noisy_level = logging.DEBUG if debug else logging.WARNING
+    for logger_name in noisy_loggers:
+        logging.getLogger(logger_name).setLevel(noisy_level)
+
     # Configure structlog
     structlog.configure(
         processors=[

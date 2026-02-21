@@ -27,6 +27,7 @@ from ..claude.sdk_integration import StreamUpdate
 from ..config.settings import Settings
 from ..projects import PrivateTopicsUnavailableError
 from .utils.html_format import escape_html
+from .utils.runtime_health import get_codex_runtime_health
 
 logger = structlog.get_logger()
 
@@ -502,8 +503,17 @@ class MessageOrchestrator:
             except Exception:
                 pass
 
+        health = await get_codex_runtime_health(context.bot_data)
+        cli_short = "cli✅" if health.get("cli") == "available" else "cli❌"
+        auth_state = health.get("auth", "unknown")
+        auth_short = {
+            "logged_in": "auth✅",
+            "not_logged_in": "auth❌",
+            "timeout": "auth⏱",
+        }.get(auth_state, "auth?")
+
         await update.message.reply_text(
-            f"📂 {dir_display} · Session: {session_status}{cost_str}"
+            f"📂 {dir_display} · Session: {session_status}{cost_str} · Codex: {cli_short}/{auth_short}"
         )
 
     def _get_verbose_level(self, context: ContextTypes.DEFAULT_TYPE) -> int:

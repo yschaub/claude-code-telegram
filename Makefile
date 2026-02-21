@@ -1,4 +1,4 @@
-.PHONY: install dev test lint format clean help run run-remote remote-attach remote-stop
+.PHONY: install dev test lint format clean help run run-debug smoke-codex run-remote remote-attach remote-stop
 
 # Default target
 help:
@@ -10,6 +10,8 @@ help:
 	@echo "  format     - Format code"
 	@echo "  clean      - Clean up generated files"
 	@echo "  run        - Run the bot"
+	@echo "  run-debug  - Run the bot with debug logs"
+	@echo "  smoke-codex - Smoke test Codex new+resume path"
 	@echo "  run-remote - Start bot in tmux on remote Mac (unlocks keychain)"
 	@echo "  remote-attach - Attach to running bot tmux session"
 	@echo "  remote-stop   - Stop the bot tmux session"
@@ -46,6 +48,9 @@ run:
 # For debugging
 run-debug:
 	poetry run python -m src.main --debug
+
+smoke-codex:
+	poetry run python scripts/codex_smoke.py
 
 # Remote Mac Mini (SSH session)
 run-remote:  ## Start bot on remote Mac in tmux (persists after SSH disconnect)
