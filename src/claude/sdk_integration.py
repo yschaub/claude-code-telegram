@@ -136,6 +136,8 @@ class ClaudeSDKManager:
             "tool_fingerprints": set(),
             "stderr_lines": [],
             "non_json_stdout": [],
+            "event_types": [],
+            "event_errors": [],
         }
         process: Optional[asyncio.subprocess.Process] = None
 
@@ -193,6 +195,10 @@ class ClaudeSDKManager:
                         logger.debug("Skipping invalid JSONL line", line=text[:200])
                         continue
 
+                    event_type = str(event.get("type", "unknown"))
+                    state["event_types"].append(event_type)
+                    logger.debug("Codex JSON event", event_type=event_type)
+
                     await self._handle_event(event, state, stream_callback)
 
             async def _read_stderr() -> None:
@@ -213,13 +219,21 @@ class ClaudeSDKManager:
             duration_ms = int((asyncio.get_running_loop().time() - start_time) * 1000)
 
             content = ""
+            content_from_assistant = False
             if output_path.exists():
                 content = output_path.read_text(encoding="utf-8", errors="replace")
+                if content.strip():
+                    content_from_assistant = True
 
             if not content.strip():
                 content = "\n".join(state["text_fragments"]).strip()
-            if not content.strip():
-                content = "\n".join(state["non_json_stdout"]).strip()
+                if content.strip():
+                    content_from_assistant = True
+
+            diagnostics = "\n".join(
+                [*state["stderr_lines"], *state["non_json_stdout"]]
+            ).strip()
+
             if not content.strip():
                 content = (
                     "I could not produce a final response for that request. "
@@ -229,12 +243,22 @@ class ClaudeSDKManager:
             return_code = process.returncode
             if return_code != 0:
                 stderr = "\n".join(state["stderr_lines"][-30:]).strip()
-                if not stderr:
-                    stderr = f"Codex CLI exited with status {return_code}"
+                non_json = "\n".join(state["non_json_stdout"][-30:]).strip()
+                event_error_text = "\n".join(state["event_errors"][-8:]).strip()
+                err_text = (
+                    stderr
+                    or event_error_text
+                    or non_json
+                    or f"Codex CLI exited with status {return_code}"
+                )
+                if not stderr and not non_json and state["event_types"]:
+                    err_text = (
+                        f"{err_text} (events: {', '.join(state['event_types'][-8:])})"
+                    )
 
-                err_lower = stderr.lower()
+                err_lower = err_text.lower()
                 if "mcp" in err_lower:
-                    raise ClaudeMCPError(f"MCP server error: {stderr}")
+                    raise ClaudeMCPError(f"MCP server error: {err_text}")
 
                 if "not logged in" in err_lower:
                     raise ClaudeProcessError(
@@ -250,15 +274,28 @@ class ClaudeSDKManager:
                         "Codex returned no final assistant artifact; "
                         "falling back to streamed content",
                         return_code=return_code,
-                        stderr=stderr,
+                        stderr=err_text,
                     )
                     if not content.strip():
                         content = (
                             "I could not produce a final response for that request. "
                             "Please try again or rephrase."
                         )
+                    # Session may not be reliably resumable when command exits non-zero
+                    # without producing assistant output.
+                    if not content_from_assistant:
+                        state["session_id"] = session_id if continue_session else None
                 else:
-                    raise ClaudeProcessError(f"Codex process error: {stderr}")
+                    # If we recovered meaningful assistant content despite a non-zero
+                    # exit, return it instead of failing hard.
+                    if content_from_assistant:
+                        logger.warning(
+                            "Codex exited non-zero but produced assistant content",
+                            return_code=return_code,
+                            diagnostics=diagnostics[-500:],
+                        )
+                    else:
+                        raise ClaudeProcessError(f"Codex process error: {err_text}")
 
             final_session_id = (
                 state["session_id"]
@@ -315,11 +352,15 @@ class ClaudeSDKManager:
             # For `codex exec resume`, options must come before SESSION_ID.
             # Also, current Codex versions don't accept `--sandbox` in resume mode.
             cmd.extend(["--json", "--skip-git-repo-check"])
+            if getattr(self.config, "codex_full_auto", True):
+                cmd.append("--full-auto")
         else:
             cmd.extend(["--json", "--skip-git-repo-check"])
 
             # Use explicit sandbox mode for predictable server-side behavior.
-            if self.config.sandbox_enabled:
+            if self.config.sandbox_enabled and getattr(self.config, "codex_full_auto", True):
+                cmd.append("--full-auto")
+            elif self.config.sandbox_enabled:
                 cmd.extend(["--sandbox", "workspace-write"])
             else:
                 cmd.extend(["--sandbox", "danger-full-access"])
@@ -358,10 +399,7 @@ class ClaudeSDKManager:
         if is_resume and session_id:
             cmd.append(session_id)
 
-        if is_resume:
-            cmd.append(prompt)
-        else:
-            cmd.extend(["--output-last-message", str(output_path), prompt])
+        cmd.append(prompt)
         return cmd
 
     def _build_environment(self) -> Dict[str, str]:
@@ -391,6 +429,19 @@ class ClaudeSDKManager:
 
         if event_type == "turn.started":
             state["turn_count"] += 1
+
+        error_text = self._extract_error_text(event)
+        if error_text:
+            state["event_errors"].append(error_text)
+            if error_text in {"error", "turn.failed", "response.failed", "session.failed"}:
+                logger.warning(
+                    "Codex event error",
+                    event_type=event_type,
+                    error=error_text,
+                    event_payload=event,
+                )
+            else:
+                logger.warning("Codex event error", event_type=event_type, error=error_text)
 
         text_chunks = self._extract_text_chunks(event)
         for text_chunk in text_chunks:
@@ -501,6 +552,43 @@ class ClaudeSDKManager:
             chunks.append(text.strip())
 
         return chunks
+
+    def _extract_error_text(self, event: Dict[str, Any]) -> Optional[str]:
+        """Extract structured error text from Codex JSON events."""
+        event_type = str(event.get("type", "")).lower()
+        if event_type not in {"error", "turn.failed", "response.failed", "session.failed"}:
+            return None
+
+        parts: List[str] = []
+
+        error = event.get("error")
+        if isinstance(error, str) and error.strip():
+            parts.append(error.strip())
+        elif isinstance(error, dict):
+            for key in ("message", "detail", "reason", "code", "type"):
+                val = error.get(key)
+                if isinstance(val, str) and val.strip():
+                    parts.append(val.strip())
+
+        for key in ("message", "detail", "reason"):
+            val = event.get(key)
+            if isinstance(val, str) and val.strip():
+                parts.append(val.strip())
+
+        errors = event.get("errors")
+        if isinstance(errors, list):
+            for item in errors:
+                if isinstance(item, str) and item.strip():
+                    parts.append(item.strip())
+                elif isinstance(item, dict):
+                    msg = item.get("message") or item.get("detail") or item.get("reason")
+                    if isinstance(msg, str) and msg.strip():
+                        parts.append(msg.strip())
+
+        deduped = list(dict.fromkeys(parts))
+        if deduped:
+            return " | ".join(deduped)
+        return event_type or "unknown codex error"
 
     def _extract_text_from_message_like(self, message: Dict[str, Any]) -> List[str]:
         chunks: List[str] = []

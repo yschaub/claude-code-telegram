@@ -82,6 +82,11 @@ class Settings(BaseSettings):
         description="Extra CLI flags to pass to codex exec (advanced use only)",
         validation_alias=AliasChoices("CODEX_EXTRA_ARGS"),
     )
+    codex_full_auto: bool = Field(
+        True,
+        description="Enable Codex full-auto mode for non-interactive execution",
+        validation_alias=AliasChoices("CODEX_FULL_AUTO"),
+    )
 
     # Claude legacy settings (deprecated but still accepted)
     claude_binary_path: Optional[str] = Field(

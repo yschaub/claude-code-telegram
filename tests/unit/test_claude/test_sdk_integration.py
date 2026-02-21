@@ -60,12 +60,10 @@ def manager(config: Settings) -> ClaudeSDKManager:
 
 class TestClaudeSDKManager:
     async def test_execute_command_success(self, manager: ClaudeSDKManager):
-        async def _create_process(*cmd, **kwargs):
-            cmd_list = list(cmd)
-            output_index = cmd_list.index("--output-last-message") + 1
-            output_path = Path(cmd_list[output_index])
-            output_path.write_text("final message from codex", encoding="utf-8")
+        called_cmd = []
 
+        async def _create_process(*cmd, **kwargs):
+            called_cmd.extend(list(cmd))
             stdout_lines = [
                 b'{"type":"thread.started","thread_id":"thread-123"}\n',
                 b'{"type":"turn.started"}\n',
@@ -85,7 +83,10 @@ class TestClaudeSDKManager:
 
         assert isinstance(response, ClaudeResponse)
         assert response.session_id == "thread-123"
-        assert response.content == "final message from codex"
+        assert "--output-last-message" not in called_cmd
+        assert "--full-auto" in called_cmd
+        assert "--sandbox" not in called_cmd
+        assert response.content == "hello"
         assert response.num_turns == 1
         assert response.duration_ms >= 0
         assert response.cost == 0.0
@@ -125,6 +126,7 @@ class TestClaudeSDKManager:
         assert called_cmd.index("--skip-git-repo-check") < called_cmd.index(
             "thread-existing"
         )
+        assert "--full-auto" in called_cmd
         assert "--sandbox" not in called_cmd
         assert "--output-last-message" not in called_cmd
         assert response.session_id == "thread-existing"
@@ -134,11 +136,6 @@ class TestClaudeSDKManager:
         self, manager: ClaudeSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
-            cmd_list = list(cmd)
-            output_index = cmd_list.index("--output-last-message") + 1
-            output_path = Path(cmd_list[output_index])
-            output_path.write_text("", encoding="utf-8")
-
             payload = {
                 "type": "response.completed",
                 "response": {
@@ -210,11 +207,6 @@ class TestClaudeSDKManager:
             updates.append(update)
 
         async def _create_process(*cmd, **kwargs):
-            cmd_list = list(cmd)
-            output_index = cmd_list.index("--output-last-message") + 1
-            output_path = Path(cmd_list[output_index])
-            output_path.write_text("done", encoding="utf-8")
-
             stdout_lines = [
                 b'{"type":"thread.started","thread_id":"thread-abc"}\n',
                 b'{"type":"response.output_text.delta","delta":"partial"}\n',
@@ -237,11 +229,6 @@ class TestClaudeSDKManager:
 
     async def test_execute_command_not_logged_in_error(self, manager: ClaudeSDKManager):
         async def _create_process(*cmd, **kwargs):
-            cmd_list = list(cmd)
-            output_index = cmd_list.index("--output-last-message") + 1
-            output_path = Path(cmd_list[output_index])
-            output_path.write_text("", encoding="utf-8")
-
             return _MockProcess(
                 stdout_lines=[],
                 stderr_lines=[b"Not logged in\n"],
@@ -264,11 +251,6 @@ class TestClaudeSDKManager:
         self, manager: ClaudeSDKManager
     ):
         async def _create_process(*cmd, **kwargs):
-            cmd_list = list(cmd)
-            output_index = cmd_list.index("--output-last-message") + 1
-            output_path = Path(cmd_list[output_index])
-            output_path.write_text("", encoding="utf-8")
-
             return _MockProcess(
                 stdout_lines=[b'{"type":"response.output_text.delta","delta":"partial"}\n'],
                 stderr_lines=[
@@ -288,16 +270,79 @@ class TestClaudeSDKManager:
 
         assert response.content == "partial"
 
+    async def test_nonzero_exit_with_assistant_content_is_nonfatal(
+        self, manager: ClaudeSDKManager
+    ):
+        async def _create_process(*cmd, **kwargs):
+            return _MockProcess(
+                stdout_lines=[b'{"type":"response.output_text.delta","delta":"hello"}\n'],
+                stderr_lines=[b"internal warning\n"],
+                returncode=1,
+            )
+
+        with patch(
+            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            side_effect=_create_process,
+        ):
+            response = await manager.execute_command(
+                prompt="hello",
+                working_directory=Path("/tmp"),
+            )
+
+        assert response.content == "hello"
+
+    async def test_warning_no_last_message_without_output_does_not_set_new_session(
+        self, manager: ClaudeSDKManager
+    ):
+        async def _create_process(*cmd, **kwargs):
+            return _MockProcess(
+                stdout_lines=[b'{"type":"thread.started","thread_id":"new-thread"}\n'],
+                stderr_lines=[
+                    b"Warning: no last agent message; wrote empty content to /tmp/out.txt\n"
+                ],
+                returncode=1,
+            )
+
+        with patch(
+            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            side_effect=_create_process,
+        ):
+            response = await manager.execute_command(
+                prompt="hello",
+                working_directory=Path("/tmp"),
+            )
+
+        assert response.content.startswith("I could not produce a final response")
+        assert response.session_id == ""
+
+    async def test_error_event_message_is_propagated_on_nonzero_exit(
+        self, manager: ClaudeSDKManager
+    ):
+        async def _create_process(*cmd, **kwargs):
+            stdout_lines = [
+                b'{"type":"turn.started"}\n',
+                b'{"type":"error","error":{"message":"Approval required for tool execution"}}\n',
+                b'{"type":"turn.failed"}\n',
+            ]
+            return _MockProcess(stdout_lines=stdout_lines, returncode=1)
+
+        with patch(
+            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            side_effect=_create_process,
+        ):
+            with pytest.raises(ClaudeProcessError) as exc_info:
+                await manager.execute_command(
+                    prompt="hello",
+                    working_directory=Path("/tmp"),
+                )
+
+        assert "approval required" in str(exc_info.value).lower()
+
     async def test_execute_command_timeout(self, manager: ClaudeSDKManager):
         # Make timeout short so test stays fast.
         manager.config.claude_timeout_seconds = 1
 
         async def _create_process(*cmd, **kwargs):
-            cmd_list = list(cmd)
-            output_index = cmd_list.index("--output-last-message") + 1
-            output_path = Path(cmd_list[output_index])
-            output_path.write_text("", encoding="utf-8")
-
             return _MockProcess(
                 stdout_lines=[b'{"type":"turn.started"}\n'],
                 stderr_lines=[],

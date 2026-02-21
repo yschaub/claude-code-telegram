@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.claude.exceptions import ClaudeProcessError
 from src.claude.facade import ClaudeIntegration
 from src.claude.session import ClaudeSession, InMemorySessionStorage, SessionManager
 from src.config.settings import Settings
@@ -297,3 +298,44 @@ class TestEmptySessionIdWarning:
 
         # Session ID should be empty on the response
         assert not result.session_id
+
+
+class TestResumeFallback:
+    """Verify resume failures can fallback to a fresh session."""
+
+    async def test_resume_status1_retries_as_fresh(self, facade, session_manager):
+        project = Path("/test/project")
+        user_id = 789
+
+        existing = ClaudeSession(
+            session_id="resume-session-id",
+            user_id=user_id,
+            project_path=project,
+            created_at=datetime.utcnow(),
+            last_used=datetime.utcnow(),
+        )
+        await session_manager.storage.save_session(existing)
+        session_manager.active_sessions[existing.session_id] = existing
+
+        first_error = ClaudeProcessError("Codex process error: Codex CLI exited with status 1")
+        second_response = _make_mock_response(session_id="fresh-session-id")
+
+        with patch.object(
+            facade,
+            "_execute",
+            side_effect=[first_error, second_response],
+        ) as exec_spy:
+            result = await facade.run_command(
+                prompt="hello",
+                working_directory=project,
+                user_id=user_id,
+                session_id="resume-session-id",
+                force_new=False,
+            )
+
+        assert exec_spy.call_count == 2
+        first_call = exec_spy.call_args_list[0].kwargs
+        second_call = exec_spy.call_args_list[1].kwargs
+        assert first_call["continue_session"] is True
+        assert second_call["continue_session"] is False
+        assert result.session_id == "fresh-session-id"

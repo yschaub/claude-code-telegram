@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, List, Optional
 import structlog
 
 from ..config.settings import Settings
+from .exceptions import ClaudeProcessError
 from .exceptions import ClaudeToolValidationError
 from .monitor import ToolMonitor
 from .sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
@@ -152,10 +153,7 @@ class ClaudeIntegration:
             except Exception as resume_error:
                 # If resume failed (e.g., session expired on Claude's side),
                 # retry as a fresh session
-                if (
-                    should_continue
-                    and "no conversation found" in str(resume_error).lower()
-                ):
+                if should_continue and self._should_retry_fresh_session(resume_error):
                     logger.warning(
                         "Session resume failed, starting fresh session",
                         failed_session_id=claude_session_id,
@@ -247,6 +245,30 @@ class ClaudeIntegration:
                 session_id=session.session_id,
             )
             raise
+
+    def _should_retry_fresh_session(self, error: Exception) -> bool:
+        """Return True when resume errors should fallback to a fresh session."""
+        msg = str(error).lower()
+
+        # Authentication/config problems won't be fixed by starting fresh.
+        non_retryable_markers = [
+            "not logged in",
+            "mcp server error",
+            "timed out",
+        ]
+        if any(marker in msg for marker in non_retryable_markers):
+            return False
+
+        retryable_markers = [
+            "no conversation found",
+            "exited with status 1",
+            "unexpected argument",
+            "no last agent message",
+        ]
+        if any(marker in msg for marker in retryable_markers):
+            return True
+
+        return isinstance(error, ClaudeProcessError)
 
     async def _execute(
         self,
