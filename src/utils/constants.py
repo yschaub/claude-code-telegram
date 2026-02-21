@@ -1,8 +1,8 @@
 """Application-wide constants."""
 
 # Version info
-APP_NAME = "Claude Code Telegram Bot"
-APP_DESCRIPTION = "Telegram bot for remote Claude Code access"
+APP_NAME = "Codex Telegram Bot"
+APP_DESCRIPTION = "Telegram bot for remote Codex CLI access"
 
 # Default limits
 DEFAULT_CLAUDE_TIMEOUT_SECONDS = 300
@@ -79,8 +79,8 @@ DANGEROUS_PATTERNS = [
 DEFAULT_DATABASE_URL = "sqlite:///data/bot.db"
 DEFAULT_BACKUP_RETENTION_DAYS = 30
 
-# Claude Code defaults
-DEFAULT_CLAUDE_BINARY = "claude"
+# Codex CLI defaults (legacy constant name kept for compatibility)
+DEFAULT_CLAUDE_BINARY = "codex"
 DEFAULT_CLAUDE_OUTPUT_FORMAT = "stream-json"
 
 # Logging

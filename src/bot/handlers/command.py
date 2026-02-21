@@ -373,7 +373,7 @@ async def continue_session(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if not claude_integration:
             await update.message.reply_text(
                 "❌ <b>Claude Integration Not Available</b>\n\n"
-                "Claude integration is not properly configured."
+                "Codex integration is not properly configured."
             )
             return
 

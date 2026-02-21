@@ -1,110 +1,76 @@
-"""Claude Code Python SDK integration.
+"""Codex CLI integration behind the existing Claude-compatible interface.
 
-Features:
-- Native Claude Code SDK integration
-- Async streaming support
-- Tool execution management
-- Session persistence
+Compatibility goals:
+- Preserve ClaudeResponse / StreamUpdate datatypes
+- Preserve ClaudeSDKManager public methods used elsewhere
+- Keep session semantics via ``codex exec resume``
 """
 
 import asyncio
+import json
 import os
+import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import structlog
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    ClaudeSDKError,
-    CLIConnectionError,
-    CLIJSONDecodeError,
-    CLINotFoundError,
-    Message,
-    ProcessError,
-    ResultMessage,
-    ToolUseBlock,
-    UserMessage,
-)
-from claude_agent_sdk._errors import MessageParseError
 
 from ..config.settings import Settings
-from .exceptions import (
-    ClaudeMCPError,
-    ClaudeParsingError,
-    ClaudeProcessError,
-    ClaudeTimeoutError,
-)
+from .exceptions import ClaudeMCPError, ClaudeProcessError, ClaudeTimeoutError
 
 logger = structlog.get_logger()
 
 
-def find_claude_cli(claude_cli_path: Optional[str] = None) -> Optional[str]:
-    """Find Claude CLI in common locations."""
+def find_codex_cli(
+    codex_cli_path: Optional[str] = None,
+    claude_cli_path: Optional[str] = None,
+) -> Optional[str]:
+    """Find Codex CLI executable in common locations."""
     import glob
-    import shutil
 
-    # First check if a specific path was provided via config or env
-    if claude_cli_path:
-        if os.path.exists(claude_cli_path) and os.access(claude_cli_path, os.X_OK):
-            return claude_cli_path
-
-    # Check CLAUDE_CLI_PATH environment variable
-    env_path = os.environ.get("CLAUDE_CLI_PATH")
-    if env_path and os.path.exists(env_path) and os.access(env_path, os.X_OK):
-        return env_path
-
-    # Check if claude is already in PATH
-    claude_path = shutil.which("claude")
-    if claude_path:
-        return claude_path
-
-    # Check common installation locations
-    common_paths = [
-        # NVM installations
-        os.path.expanduser("~/.nvm/versions/node/*/bin/claude"),
-        # Direct npm global install
-        os.path.expanduser("~/.npm-global/bin/claude"),
-        os.path.expanduser("~/node_modules/.bin/claude"),
-        # System locations
-        "/usr/local/bin/claude",
-        "/usr/bin/claude",
-        # Windows locations (for cross-platform support)
-        os.path.expanduser("~/AppData/Roaming/npm/claude.cmd"),
+    explicit = [
+        codex_cli_path,
+        os.environ.get("CODEX_CLI_PATH"),
+        claude_cli_path,  # compatibility alias
+        os.environ.get("CLAUDE_CLI_PATH"),  # compatibility alias
     ]
 
+    for path in explicit:
+        if path and os.path.exists(path) and os.access(path, os.X_OK):
+            return path
+
+    in_path = shutil.which("codex")
+    if in_path:
+        return in_path
+
+    # Best-effort fallback locations
+    common_paths = [
+        os.path.expanduser("~/.nvm/versions/node/*/bin/codex"),
+        os.path.expanduser("~/.npm-global/bin/codex"),
+        os.path.expanduser("~/node_modules/.bin/codex"),
+        "/usr/local/bin/codex",
+        "/usr/bin/codex",
+        os.path.expanduser("~/AppData/Roaming/npm/codex.cmd"),
+    ]
     for pattern in common_paths:
         matches = glob.glob(pattern)
-        if matches:
-            # Return the first match
-            return matches[0]
+        for match in matches:
+            if os.path.exists(match) and os.access(match, os.X_OK):
+                return match
 
     return None
 
 
-def update_path_for_claude(claude_cli_path: Optional[str] = None) -> bool:
-    """Update PATH to include Claude CLI if found."""
-    claude_path = find_claude_cli(claude_cli_path)
-
-    if claude_path:
-        # Add the directory containing claude to PATH
-        claude_dir = os.path.dirname(claude_path)
-        current_path = os.environ.get("PATH", "")
-
-        if claude_dir not in current_path:
-            os.environ["PATH"] = f"{claude_dir}:{current_path}"
-            logger.info("Updated PATH for Claude CLI", claude_path=claude_path)
-
-        return True
-
-    return False
+def find_claude_cli(claude_cli_path: Optional[str] = None) -> Optional[str]:
+    """Compatibility alias kept for existing call sites/tests."""
+    return find_codex_cli(claude_cli_path=claude_cli_path)
 
 
 @dataclass
 class ClaudeResponse:
-    """Response from Claude Code SDK."""
+    """Response object kept for compatibility with existing callers."""
 
     content: str
     session_id: str
@@ -118,35 +84,31 @@ class ClaudeResponse:
 
 @dataclass
 class StreamUpdate:
-    """Streaming update from Claude SDK."""
+    """Streaming update object kept for compatibility with existing callers."""
 
-    type: str  # 'assistant', 'user', 'system', 'result'
+    type: str
     content: Optional[str] = None
-    tool_calls: Optional[List[Dict]] = None
-    metadata: Optional[Dict] = None
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class ClaudeSDKManager:
-    """Manage Claude Code SDK integration."""
+    """Compatibility manager that executes prompts through Codex CLI."""
 
     def __init__(self, config: Settings):
-        """Initialize SDK manager with configuration."""
         self.config = config
+        self.codex_path = find_codex_cli(
+            codex_cli_path=getattr(config, "codex_cli_path", None),
+            claude_cli_path=getattr(config, "claude_cli_path", None),
+        )
 
-        # Try to find and update PATH for Claude CLI
-        if not update_path_for_claude(config.claude_cli_path):
-            logger.warning(
-                "Claude CLI not found in PATH or common locations. "
-                "SDK may fail if Claude is not installed or not in PATH."
-            )
-
-        # Set up environment for Claude Code SDK if API key is provided
-        # If no API key is provided, the SDK will use existing CLI authentication
-        if config.anthropic_api_key_str:
-            os.environ["ANTHROPIC_API_KEY"] = config.anthropic_api_key_str
-            logger.info("Using provided API key for Claude SDK authentication")
+        if self.codex_path:
+            logger.info("Codex CLI detected", codex_path=self.codex_path)
         else:
-            logger.info("No API key provided, using existing Claude CLI authentication")
+            logger.warning(
+                "Codex CLI not found in PATH or common locations. "
+                "Requests will fail until Codex is installed/configured."
+            )
 
     async def execute_command(
         self,
@@ -156,336 +118,502 @@ class ClaudeSDKManager:
         continue_session: bool = False,
         stream_callback: Optional[Callable[[StreamUpdate], None]] = None,
     ) -> ClaudeResponse:
-        """Execute Claude Code command via SDK."""
-        start_time = asyncio.get_event_loop().time()
+        """Execute command via ``codex exec``."""
+        start_time = asyncio.get_running_loop().time()
 
-        logger.info(
-            "Starting Claude SDK command",
-            working_directory=str(working_directory),
-            session_id=session_id,
-            continue_session=continue_session,
+        output_file = tempfile.NamedTemporaryFile(
+            prefix="codex-last-message-", suffix=".txt", delete=False
         )
+        output_path = Path(output_file.name)
+        output_file.close()
+
+        state: Dict[str, Any] = {
+            "session_id": None,
+            "turn_count": 0,
+            "text_fragments": [],
+            "text_fingerprints": set(),
+            "tools": [],
+            "tool_fingerprints": set(),
+            "stderr_lines": [],
+            "non_json_stdout": [],
+        }
+        process: Optional[asyncio.subprocess.Process] = None
 
         try:
-            # Build Claude Agent options
-            cli_path = find_claude_cli(self.config.claude_cli_path)
-            options = ClaudeAgentOptions(
-                max_turns=self.config.claude_max_turns,
-                cwd=str(working_directory),
-                allowed_tools=self.config.claude_allowed_tools,
-                disallowed_tools=self.config.claude_disallowed_tools,
-                cli_path=cli_path,
-                sandbox={
-                    "enabled": self.config.sandbox_enabled,
-                    "autoAllowBashIfSandboxed": True,
-                    "excludedCommands": self.config.sandbox_excluded_commands or [],
-                },
-                system_prompt=(
-                    f"All file operations must stay within {working_directory}. "
-                    "Use relative paths."
-                ),
+            cmd = self._build_codex_command(
+                prompt=prompt,
+                session_id=session_id,
+                continue_session=continue_session,
+                output_path=output_path,
+            )
+            env = self._build_environment()
+
+            logger.info(
+                "Starting Codex CLI command",
+                command=cmd,
+                working_directory=str(working_directory),
+                continue_session=continue_session,
+                session_id=session_id,
             )
 
-            # Pass MCP server configuration if enabled
-            if self.config.enable_mcp and self.config.mcp_config_path:
-                options.mcp_servers = self._load_mcp_config(self.config.mcp_config_path)
-                logger.info(
-                    "MCP servers configured",
-                    mcp_config_path=str(self.config.mcp_config_path),
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    cwd=str(working_directory),
+                    env=env,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
+            except FileNotFoundError as e:
+                raise ClaudeProcessError(
+                    "Codex CLI not found. Please install Codex CLI and ensure "
+                    "`codex` is available in PATH, or set CODEX_CLI_PATH."
+                ) from e
 
-            # Resume previous session if we have a session_id
-            if session_id and continue_session:
-                options.resume = session_id
-                logger.info(
-                    "Resuming previous session",
-                    session_id=session_id,
-                )
+            async def _read_stdout() -> None:
+                assert process.stdout is not None
+                while True:
+                    line = await process.stdout.readline()
+                    if not line:
+                        break
 
-            # Collect messages via ClaudeSDKClient
-            messages: List[Message] = []
+                    text = line.decode("utf-8", errors="replace").strip()
+                    if not text:
+                        continue
 
-            async def _run_client() -> None:
-                async with ClaudeSDKClient(options) as client:
-                    await client.query(prompt)
-                    response_iter = client.receive_response()
-                    while True:
-                        try:
-                            message = await response_iter.__anext__()
-                        except StopAsyncIteration:
-                            break
-                        except MessageParseError as e:
-                            # Skip unknown message types (e.g. rate_limit_event)
-                            # rather than failing the entire request
-                            logger.debug(
-                                "Skipping unparseable message",
-                                error=str(e),
-                            )
-                            continue
+                    if not text.startswith("{"):
+                        # Ignore non-JSON line noise (warnings, progress bars, etc.).
+                        logger.debug("Codex non-JSON stdout", line=text)
+                        state["non_json_stdout"].append(text)
+                        continue
 
-                        messages.append(message)
+                    try:
+                        event = json.loads(text)
+                    except json.JSONDecodeError:
+                        logger.debug("Skipping invalid JSONL line", line=text[:200])
+                        continue
 
-                        # Handle streaming callback
-                        if stream_callback:
-                            try:
-                                await self._handle_stream_message(
-                                    message, stream_callback
-                                )
-                            except Exception as callback_error:
-                                logger.warning(
-                                    "Stream callback failed",
-                                    error=str(callback_error),
-                                    error_type=type(callback_error).__name__,
-                                )
+                    await self._handle_event(event, state, stream_callback)
 
-            # Execute with timeout
+            async def _read_stderr() -> None:
+                assert process.stderr is not None
+                while True:
+                    line = await process.stderr.readline()
+                    if not line:
+                        break
+                    text = line.decode("utf-8", errors="replace").rstrip()
+                    if text:
+                        state["stderr_lines"].append(text)
+
             await asyncio.wait_for(
-                _run_client(),
+                asyncio.gather(_read_stdout(), _read_stderr(), process.wait()),
                 timeout=self.config.claude_timeout_seconds,
             )
 
-            # Extract cost, tools, and session_id from result message
-            cost = 0.0
-            tools_used: List[Dict[str, Any]] = []
-            claude_session_id = None
-            result_content = None
-            for message in messages:
-                if isinstance(message, ResultMessage):
-                    cost = getattr(message, "total_cost_usd", 0.0) or 0.0
-                    claude_session_id = getattr(message, "session_id", None)
-                    result_content = getattr(message, "result", None)
-                    tools_used = self._extract_tools_from_messages(messages)
-                    break
+            duration_ms = int((asyncio.get_running_loop().time() - start_time) * 1000)
 
-            # Calculate duration
-            duration_ms = int((asyncio.get_event_loop().time() - start_time) * 1000)
+            content = ""
+            if output_path.exists():
+                content = output_path.read_text(encoding="utf-8", errors="replace")
 
-            # Use Claude's session_id if available, otherwise fall back
-            final_session_id = claude_session_id or session_id or ""
-
-            if claude_session_id and claude_session_id != session_id:
-                logger.info(
-                    "Got session ID from Claude",
-                    claude_session_id=claude_session_id,
-                    previous_session_id=session_id,
+            if not content.strip():
+                content = "\n".join(state["text_fragments"]).strip()
+            if not content.strip():
+                content = "\n".join(state["non_json_stdout"]).strip()
+            if not content.strip():
+                content = (
+                    "I could not produce a final response for that request. "
+                    "Please try again or rephrase."
                 )
 
-            # Use ResultMessage.result if available, fall back to message extraction
-            content = (
-                result_content
-                if result_content is not None
-                else self._extract_content_from_messages(messages)
+            return_code = process.returncode
+            if return_code != 0:
+                stderr = "\n".join(state["stderr_lines"][-30:]).strip()
+                if not stderr:
+                    stderr = f"Codex CLI exited with status {return_code}"
+
+                err_lower = stderr.lower()
+                if "mcp" in err_lower:
+                    raise ClaudeMCPError(f"MCP server error: {stderr}")
+
+                if "not logged in" in err_lower:
+                    raise ClaudeProcessError(
+                        "Codex CLI is not logged in. Run `codex login` on the host "
+                        "running this bot, then retry."
+                    )
+
+                # Newer Codex versions may emit this warning and non-zero exit when
+                # no final assistant artifact is available for --output-last-message.
+                # We still salvage streamed text when possible.
+                if "no last agent message; wrote empty content" in err_lower:
+                    logger.warning(
+                        "Codex returned no final assistant artifact; "
+                        "falling back to streamed content",
+                        return_code=return_code,
+                        stderr=stderr,
+                    )
+                    if not content.strip():
+                        content = (
+                            "I could not produce a final response for that request. "
+                            "Please try again or rephrase."
+                        )
+                else:
+                    raise ClaudeProcessError(f"Codex process error: {stderr}")
+
+            final_session_id = (
+                state["session_id"]
+                or (session_id if continue_session and session_id else None)
+                or ""
             )
+
+            num_turns = state["turn_count"] or (1 if prompt.strip() else 0)
 
             return ClaudeResponse(
                 content=content,
                 session_id=final_session_id,
-                cost=cost,
+                cost=0.0,  # Codex CLI does not expose direct USD cost in JSONL stream.
                 duration_ms=duration_ms,
-                num_turns=len(
-                    [
-                        m
-                        for m in messages
-                        if isinstance(m, (UserMessage, AssistantMessage))
-                    ]
-                ),
-                tools_used=tools_used,
+                num_turns=num_turns,
+                tools_used=state["tools"],
             )
 
-        except asyncio.TimeoutError:
-            logger.error(
-                "Claude SDK command timed out",
-                timeout_seconds=self.config.claude_timeout_seconds,
-            )
+        except asyncio.TimeoutError as e:
+            if process and process.returncode is None:
+                process.kill()
+                try:
+                    await process.wait()
+                except Exception:
+                    pass
             raise ClaudeTimeoutError(
-                f"Claude SDK timed out after {self.config.claude_timeout_seconds}s"
-            )
+                f"Codex CLI timed out after {self.config.claude_timeout_seconds}s"
+            ) from e
 
-        except CLINotFoundError as e:
-            logger.error("Claude CLI not found", error=str(e))
-            error_msg = (
-                "Claude Code not found. Please ensure Claude is installed:\n"
-                "  npm install -g @anthropic-ai/claude-code\n\n"
-                "If already installed, try one of these:\n"
-                "  1. Add Claude to your PATH\n"
-                "  2. Create a symlink: ln -s $(which claude) /usr/local/bin/claude\n"
-                "  3. Set CLAUDE_CLI_PATH environment variable"
-            )
-            raise ClaudeProcessError(error_msg)
+        finally:
+            try:
+                output_path.unlink(missing_ok=True)
+            except Exception:
+                logger.debug("Failed to remove temp output file", path=str(output_path))
 
-        except ProcessError as e:
-            error_str = str(e)
-            logger.error(
-                "Claude process failed",
-                error=error_str,
-                exit_code=getattr(e, "exit_code", None),
-            )
-            # Check if the process error is MCP-related
-            if "mcp" in error_str.lower():
-                raise ClaudeMCPError(f"MCP server error: {error_str}")
-            raise ClaudeProcessError(f"Claude process error: {error_str}")
+    def _build_codex_command(
+        self,
+        prompt: str,
+        session_id: Optional[str],
+        continue_session: bool,
+        output_path: Path,
+    ) -> List[str]:
+        # Some call sites intentionally pass an empty prompt to mean "continue".
+        # Codex expects a non-empty prompt for reliable non-interactive execution.
+        if continue_session and not prompt.strip():
+            prompt = "Please continue where we left off."
 
-        except CLIConnectionError as e:
-            error_str = str(e)
-            logger.error("Claude connection error", error=error_str)
-            # Check if the connection error is MCP-related
-            if "mcp" in error_str.lower() or "server" in error_str.lower():
-                raise ClaudeMCPError(f"MCP server connection failed: {error_str}")
-            raise ClaudeProcessError(f"Failed to connect to Claude: {error_str}")
+        codex = self.codex_path or "codex"
+        cmd: List[str] = [codex, "exec"]
 
-        except CLIJSONDecodeError as e:
-            logger.error("Claude SDK JSON decode error", error=str(e))
-            raise ClaudeParsingError(f"Failed to decode Claude response: {str(e)}")
+        is_resume = continue_session and bool(session_id)
+        if is_resume:
+            cmd.append("resume")
+            # For `codex exec resume`, options must come before SESSION_ID.
+            # Also, current Codex versions don't accept `--sandbox` in resume mode.
+            cmd.extend(["--json", "--skip-git-repo-check"])
+        else:
+            cmd.extend(["--json", "--skip-git-repo-check"])
 
-        except ClaudeSDKError as e:
-            logger.error("Claude SDK error", error=str(e))
-            raise ClaudeProcessError(f"Claude SDK error: {str(e)}")
-
-        except Exception as e:
-            # Handle ExceptionGroup from TaskGroup operations (Python 3.11+)
-            if type(e).__name__ == "ExceptionGroup" or hasattr(e, "exceptions"):
-                logger.error(
-                    "Task group error in Claude SDK",
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    exception_count=len(getattr(e, "exceptions", [])),
-                    exceptions=[
-                        str(ex) for ex in getattr(e, "exceptions", [])[:3]
-                    ],  # Log first 3 exceptions
-                )
-                # Extract the most relevant exception from the group
-                exceptions = getattr(e, "exceptions", [e])
-                main_exception = exceptions[0] if exceptions else e
-                raise ClaudeProcessError(
-                    f"Claude SDK task error: {str(main_exception)}"
-                )
-
-            # Check if it's an ExceptionGroup disguised as a regular exception
-            elif hasattr(e, "__notes__") and "TaskGroup" in str(e):
-                logger.error(
-                    "TaskGroup related error in Claude SDK",
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
-                raise ClaudeProcessError(f"Claude SDK task error: {str(e)}")
-
+            # Use explicit sandbox mode for predictable server-side behavior.
+            if self.config.sandbox_enabled:
+                cmd.extend(["--sandbox", "workspace-write"])
             else:
-                logger.error(
-                    "Unexpected error in Claude SDK",
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
-                raise ClaudeProcessError(f"Unexpected error: {str(e)}")
+                cmd.extend(["--sandbox", "danger-full-access"])
 
-    async def _handle_stream_message(
-        self, message: Message, stream_callback: Callable[[StreamUpdate], None]
+        model = getattr(self.config, "codex_model", None)
+        if model:
+            cmd.extend(["--model", model])
+
+        extra_args = getattr(self.config, "codex_extra_args", None) or []
+        if is_resume:
+            # `codex exec resume` rejects `--sandbox`; strip it even if provided
+            # in CODEX_EXTRA_ARGS for normal `codex exec` calls.
+            sanitized_args: List[str] = []
+            skip_next = False
+            for arg in extra_args:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if not isinstance(arg, str):
+                    continue
+                cleaned = arg.strip()
+                if not cleaned:
+                    continue
+                if cleaned == "--sandbox":
+                    skip_next = True
+                    continue
+                if cleaned.startswith("--sandbox="):
+                    continue
+                sanitized_args.append(cleaned)
+            extra_args = sanitized_args
+
+        for arg in extra_args:
+            if isinstance(arg, str) and arg.strip():
+                cmd.append(arg.strip())
+
+        if is_resume and session_id:
+            cmd.append(session_id)
+
+        if is_resume:
+            cmd.append(prompt)
+        else:
+            cmd.extend(["--output-last-message", str(output_path), prompt])
+        return cmd
+
+    def _build_environment(self) -> Dict[str, str]:
+        env = os.environ.copy()
+
+        codex_home = getattr(self.config, "codex_home", None)
+        if codex_home:
+            env["CODEX_HOME"] = str(Path(codex_home).expanduser())
+
+        codex_cli_path = getattr(self.config, "codex_cli_path", None)
+        if codex_cli_path and "CODEX_CLI_PATH" not in env:
+            env["CODEX_CLI_PATH"] = codex_cli_path
+
+        return env
+
+    async def _handle_event(
+        self,
+        event: Dict[str, Any],
+        state: Dict[str, Any],
+        stream_callback: Optional[Callable[[StreamUpdate], None]],
     ) -> None:
-        """Handle streaming message from claude-agent-sdk."""
-        try:
-            if isinstance(message, AssistantMessage):
-                # Extract content from assistant message
-                content = getattr(message, "content", [])
-                text_parts = []
-                tool_calls = []
+        event_type = str(event.get("type", ""))
 
-                if content and isinstance(content, list):
-                    for block in content:
-                        if isinstance(block, ToolUseBlock):
-                            tool_calls.append(
-                                {
-                                    "name": getattr(block, "name", "unknown"),
-                                    "input": getattr(block, "input", {}),
-                                    "id": getattr(block, "id", None),
-                                }
-                            )
-                        elif hasattr(block, "text"):
-                            text_parts.append(block.text)
+        thread_id = event.get("thread_id") or event.get("session_id")
+        if isinstance(thread_id, str) and thread_id:
+            state["session_id"] = thread_id
 
-                if text_parts or tool_calls:
-                    update = StreamUpdate(
-                        type="assistant",
-                        content=("\n".join(text_parts) if text_parts else None),
-                        tool_calls=tool_calls if tool_calls else None,
+        if event_type == "turn.started":
+            state["turn_count"] += 1
+
+        text_chunks = self._extract_text_chunks(event)
+        for text_chunk in text_chunks:
+            normalized = text_chunk.strip()
+            if not normalized:
+                continue
+            if normalized in state["text_fingerprints"]:
+                continue
+            state["text_fingerprints"].add(normalized)
+            state["text_fragments"].append(normalized)
+
+            if stream_callback and "delta" in event_type.lower():
+                try:
+                    await stream_callback(
+                        StreamUpdate(
+                            type="assistant",
+                            content=normalized,
+                            metadata={"event_type": event_type},
+                        )
                     )
-                    await stream_callback(update)
-                elif content:
-                    # Fallback for non-list content
-                    update = StreamUpdate(
-                        type="assistant",
-                        content=str(content),
+                except Exception as callback_error:
+                    logger.warning(
+                        "Stream callback failed for text delta",
+                        error=str(callback_error),
                     )
-                    await stream_callback(update)
 
-            elif isinstance(message, UserMessage):
-                content = getattr(message, "content", "")
-                if content:
-                    update = StreamUpdate(
-                        type="user",
-                        content=content,
+        tool_calls = self._extract_tool_calls(event)
+        if tool_calls:
+            for tool in tool_calls:
+                fingerprint = json.dumps(
+                    {
+                        "name": tool.get("name"),
+                        "input": tool.get("input", {}),
+                    },
+                    sort_keys=True,
+                )
+                if fingerprint in state["tool_fingerprints"]:
+                    continue
+                state["tool_fingerprints"].add(fingerprint)
+                state["tools"].append(tool)
+
+            if stream_callback:
+                try:
+                    await stream_callback(
+                        StreamUpdate(
+                            type="assistant",
+                            tool_calls=tool_calls,
+                            metadata={"event_type": event_type},
+                        )
                     )
-                    await stream_callback(update)
+                except Exception as callback_error:
+                    logger.warning(
+                        "Stream callback failed for tool call",
+                        error=str(callback_error),
+                    )
 
-        except Exception as e:
-            logger.warning("Stream callback failed", error=str(e))
+    def _extract_text_chunks(self, event: Dict[str, Any]) -> List[str]:
+        """Extract assistant-facing text from Codex JSON events."""
+        chunks: List[str] = []
+        event_type = str(event.get("type", "")).lower()
 
-    def _extract_content_from_messages(self, messages: List[Message]) -> str:
-        """Extract content from message list."""
-        content_parts = []
+        # Common delta shape: {"type":"...delta","delta":"..."}
+        delta = event.get("delta")
+        if isinstance(delta, str) and delta.strip():
+            chunks.append(delta.strip())
 
-        for message in messages:
-            if isinstance(message, AssistantMessage):
-                content = getattr(message, "content", [])
-                if content and isinstance(content, list):
-                    # Extract text from TextBlock objects
-                    for block in content:
-                        if hasattr(block, "text"):
-                            content_parts.append(block.text)
-                elif content:
-                    # Fallback for non-list content
-                    content_parts.append(str(content))
+        # Some events emit text under "text" and "output_text".
+        text = event.get("text")
+        if isinstance(text, str) and text.strip() and "delta" in event_type:
+            chunks.append(text.strip())
 
-        return "\n".join(content_parts)
+        output_text = event.get("output_text")
+        if isinstance(output_text, str) and output_text.strip():
+            chunks.append(output_text.strip())
 
-    def _extract_tools_from_messages(
-        self, messages: List[Message]
-    ) -> List[Dict[str, Any]]:
-        """Extract tools used from message list."""
-        tools_used = []
-        current_time = asyncio.get_event_loop().time()
+        # Item/message fallback shape.
+        item = event.get("item")
+        if isinstance(item, dict):
+            chunks.extend(self._extract_text_from_message_like(item))
 
-        for message in messages:
-            if isinstance(message, AssistantMessage):
-                content = getattr(message, "content", [])
-                if content and isinstance(content, list):
-                    for block in content:
-                        if isinstance(block, ToolUseBlock):
-                            tools_used.append(
-                                {
-                                    "name": getattr(block, "name", "unknown"),
-                                    "timestamp": current_time,
-                                    "input": getattr(block, "input", {}),
-                                }
-                            )
+        message = event.get("message")
+        if isinstance(message, dict):
+            chunks.extend(self._extract_text_from_message_like(message))
 
-        return tools_used
+        # Completed response shape from newer Codex JSON output.
+        response = event.get("response")
+        if isinstance(response, dict):
+            response_output = response.get("output")
+            if isinstance(response_output, list):
+                for output_item in response_output:
+                    if isinstance(output_item, dict):
+                        chunks.extend(self._extract_text_from_message_like(output_item))
 
-    def _load_mcp_config(self, config_path: Path) -> Dict[str, Any]:
-        """Load MCP server configuration from a JSON file.
+            response_text = response.get("output_text")
+            if isinstance(response_text, str) and response_text.strip():
+                chunks.append(response_text.strip())
 
-        The new claude-agent-sdk expects mcp_servers as a dict, not a file path.
-        """
-        import json
-
-        try:
-            with open(config_path) as f:
-                config_data = json.load(f)
-            return config_data.get("mcpServers", {})
-        except (json.JSONDecodeError, OSError) as e:
-            logger.error(
-                "Failed to load MCP config", path=str(config_path), error=str(e)
+        # Final fallback for non-delta completion events that may carry top-level text.
+        if (
+            isinstance(text, str)
+            and text.strip()
+            and (
+                "completed" in event_type
+                or "assistant" in event_type
+                or "response" in event_type
             )
-            return {}
+        ):
+            chunks.append(text.strip())
+
+        return chunks
+
+    def _extract_text_from_message_like(self, message: Dict[str, Any]) -> List[str]:
+        chunks: List[str] = []
+        role = message.get("role")
+        if role is not None and role != "assistant":
+            return chunks
+
+        direct_text = message.get("text")
+        if isinstance(direct_text, str) and direct_text.strip():
+            chunks.append(direct_text.strip())
+
+        content = message.get("content")
+        if isinstance(content, str) and content.strip():
+            chunks.append(content.strip())
+        elif isinstance(content, list):
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                part_type = part.get("type")
+                part_text = part.get("text")
+                if (
+                    isinstance(part_text, str)
+                    and part_text.strip()
+                    and part_type in {"output_text", "text", "message"}
+                ):
+                    chunks.append(part_text.strip())
+
+                # Some shapes use {"type":"text","content":"..."}
+                part_content = part.get("content")
+                if (
+                    isinstance(part_content, str)
+                    and part_content.strip()
+                    and part_type in {"output_text", "text", "message"}
+                ):
+                    chunks.append(part_content.strip())
+
+        return chunks
+
+    def _extract_tool_calls(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
+        event_type = str(event.get("type", "")).lower()
+        tool_calls: List[Dict[str, Any]] = []
+        tool_aliases = {
+            "read": "Read",
+            "read_file": "Read",
+            "write": "Write",
+            "write_file": "Write",
+            "edit": "Edit",
+            "edit_file": "Edit",
+            "multi_edit": "MultiEdit",
+            "multiedit": "MultiEdit",
+            "bash": "Bash",
+            "shell": "Bash",
+            "glob": "Glob",
+            "grep": "Grep",
+            "ls": "LS",
+            "task": "Task",
+            "web_fetch": "WebFetch",
+            "webfetch": "WebFetch",
+            "web_search": "WebSearch",
+            "websearch": "WebSearch",
+            "todo_read": "TodoRead",
+            "todo_write": "TodoWrite",
+            "notebook_read": "NotebookRead",
+            "notebook_edit": "NotebookEdit",
+        }
+
+        # Generic shape: {"tool_name": ..., "input": ...}
+        tool_name = event.get("tool_name")
+        if isinstance(tool_name, str) and tool_name:
+            canonical = tool_aliases.get(tool_name.lower())
+            if not canonical:
+                return []
+            tool_calls.append(
+                {
+                    "name": canonical,
+                    "input": event.get("input")
+                    if isinstance(event.get("input"), dict)
+                    else {},
+                }
+            )
+            return tool_calls
+
+        # Shell command events (best-effort mapping for existing UI)
+        command = event.get("command")
+        if isinstance(command, str) and command.strip():
+            if "exec.command" in event_type or "shell" in event_type or "bash" in event_type:
+                tool_calls.append(
+                    {
+                        "name": "Bash",
+                        "input": {"command": command},
+                    }
+                )
+                return tool_calls
+
+        # Nested generic tool_call object
+        nested = event.get("tool_call")
+        if isinstance(nested, dict):
+            name = nested.get("name")
+            if isinstance(name, str) and name:
+                canonical = tool_aliases.get(name.lower())
+                if not canonical:
+                    return []
+                tool_calls.append(
+                    {
+                        "name": canonical,
+                        "input": nested.get("input")
+                        if isinstance(nested.get("input"), dict)
+                        else {},
+                    }
+                )
+
+        return tool_calls
 
     def get_active_process_count(self) -> int:
-        """Get number of active sessions (always 0, per-request clients)."""
+        """Get number of active sessions (always 0, per-request subprocesses)."""
         return 0

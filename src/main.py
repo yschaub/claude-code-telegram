@@ -1,4 +1,4 @@
-"""Main entry point for Claude Code Telegram Bot."""
+"""Main entry point for Codex Telegram Bot."""
 
 import argparse
 import asyncio
@@ -78,12 +78,12 @@ def setup_logging(debug: bool = False) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Claude Code Telegram Bot",
+        description="Codex Telegram Bot",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument(
-        "--version", action="version", version=f"Claude Code Telegram Bot {__version__}"
+        "--version", action="version", version=f"Codex Telegram Bot {__version__}"
     )
 
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
@@ -145,7 +145,7 @@ async def create_application(config: Settings) -> Dict[str, Any]:
     )
 
     # Create Claude SDK manager and integration facade
-    logger.info("Using Claude Python SDK integration")
+    logger.info("Using Codex CLI integration")
     sdk_manager = ClaudeSDKManager(config)
 
     claude_integration = ClaudeIntegration(
@@ -234,7 +234,7 @@ async def run_application(app: Dict[str, Any]) -> None:
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        logger.info("Starting Claude Code Telegram Bot")
+        logger.info("Starting Codex Telegram Bot")
 
         # Initialize the bot first (creates the Telegram Application)
         await bot.initialize()
@@ -374,7 +374,7 @@ async def main() -> None:
     setup_logging(debug=args.debug)
 
     logger = structlog.get_logger()
-    logger.info("Starting Claude Code Telegram Bot", version=__version__)
+    logger.info("Starting Codex Telegram Bot", version=__version__)
 
     try:
         # Load configuration

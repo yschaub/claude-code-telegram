@@ -542,7 +542,7 @@ async def _handle_continue_action(query, context: ContextTypes.DEFAULT_TYPE) -> 
         if not claude_integration:
             await query.edit_message_text(
                 "❌ <b>Claude Integration Not Available</b>\n\n"
-                "Claude integration is not properly configured.",
+                "Codex integration is not properly configured.",
                 parse_mode="HTML",
             )
             return
@@ -884,12 +884,12 @@ async def handle_quick_action_callback(
         )
         return
 
-    # Get Claude integration
+    # Get Codex integration
     claude_integration: ClaudeIntegration = context.bot_data.get("claude_integration")
     if not claude_integration:
         await query.edit_message_text(
             "❌ <b>Claude Integration Not Available</b>\n\n"
-            "Claude integration is not properly configured.",
+            "Codex integration is not properly configured.",
             parse_mode="HTML",
         )
         return

@@ -200,7 +200,7 @@ def _format_error_message(error: Exception | str) -> str:
             "• Check your current usage with /status"
         )
 
-    if "timed out after" in error_lower or "claude sdk timed out" in error_lower:
+    if "timed out after" in error_lower or "codex cli timed out" in error_lower:
         return (
             "⏰ <b>Request Timeout</b>\n\n"
             f"{escape_html(error_str)}\n\n"
@@ -212,45 +212,51 @@ def _format_error_message(error: Exception | str) -> str:
 
     if "overloaded" in error_lower:
         return (
-            "🏗️ <b>Claude is Overloaded</b>\n\n"
-            "The Claude API is currently experiencing high demand.\n\n"
+            "🏗️ <b>Service Is Overloaded</b>\n\n"
+            "The coding assistant backend is currently experiencing high demand.\n\n"
             "<b>What you can do:</b>\n"
             "• Wait a moment and try again\n"
             "• Shorter prompts may succeed more easily"
         )
 
-    if "invalid api key" in error_lower or "authentication_error" in error_lower:
+    if (
+        "invalid api key" in error_lower
+        or "authentication_error" in error_lower
+        or "not logged in" in error_lower
+    ):
         return (
             "🔑 <b>API Authentication Error</b>\n\n"
-            "The API key used to connect to Claude is invalid or expired.\n\n"
+            "The backend authentication is missing or invalid.\n\n"
             "<b>What you can do:</b>\n"
-            "• Ask the administrator to verify the "
-            "<code>ANTHROPIC_API_KEY</code> setting\n"
-            "• Check that the API key has not been revoked"
+            "• Run <code>codex login</code> on the host machine\n"
+            "• Verify <code>codex login status</code>\n"
+            "• If using API keys, check the configured credentials"
         )
 
-    # Match known SDK prefixes: "Failed to connect to Claude: ..."
-    # and "MCP server connection failed: ..."
-    if error_lower.startswith("failed to connect to claude"):
+    # Match known backend connection prefixes.
+    if error_lower.startswith("failed to connect to claude") or error_lower.startswith(
+        "failed to connect to codex"
+    ):
         return (
             "🌐 <b>Connection Error</b>\n\n"
-            f"Could not connect to Claude:\n"
+            f"Could not connect to the coding backend:\n"
             f"<code>{escape_html(error_str[:300])}</code>\n\n"
             "<b>What you can do:</b>\n"
             "• Check your network / firewall settings\n"
-            "• Verify the Claude CLI is installed and accessible\n"
+            "• Verify the Codex CLI is installed and accessible\n"
             "• Try again in a moment"
         )
 
-    # Match known SDK prefix: "Claude Code not found. ..."
-    if error_lower.startswith("claude code not found"):
+    # Match known CLI-not-found prefixes.
+    if error_lower.startswith("claude code not found") or error_lower.startswith(
+        "codex cli not found"
+    ):
         return (
-            "🔍 <b>Claude CLI Not Found</b>\n\n"
+            "🔍 <b>Codex CLI Not Found</b>\n\n"
             f"{escape_html(error_str)}\n\n"
             "<b>What you can do:</b>\n"
-            "• Ensure Claude Code is installed: "
-            "<code>npm install -g @anthropic-ai/claude-code</code>\n"
-            "• Set the <code>CLAUDE_CLI_PATH</code> environment variable"
+            "• Ensure Codex CLI is installed and in PATH\n"
+            "• Set the <code>CODEX_CLI_PATH</code> environment variable"
         )
 
     # Match known SDK prefixes: "MCP server error: ..." and
@@ -274,13 +280,13 @@ def _format_error_message(error: Exception | str) -> str:
 
 
 def _format_process_error(error_str: str) -> str:
-    """Format a Claude process/SDK error with the actual details."""
+    """Format a backend process/SDK error with the actual details."""
     safe_error = escape_html(error_str)
     if len(safe_error) > 500:
         safe_error = safe_error[:500] + "..."
 
     return (
-        f"❌ <b>Claude Process Error</b>\n\n"
+        f"❌ <b>Backend Process Error</b>\n\n"
         f"{safe_error}\n\n"
         "<b>What you can do:</b>\n"
         "• Try your request again\n"
@@ -326,14 +332,14 @@ async def handle_text_message(
             reply_to_message_id=update.message.message_id,
         )
 
-        # Get Claude integration and storage from context
+        # Get Codex integration and storage from context
         claude_integration = context.bot_data.get("claude_integration")
         storage = context.bot_data.get("storage")
 
         if not claude_integration:
             await update.message.reply_text(
-                "❌ <b>Claude integration not available</b>\n\n"
-                "The Claude Code integration is not properly configured. "
+                "❌ <b>Codex integration not available</b>\n\n"
+                "The Codex integration is not properly configured. "
                 "Please contact the administrator.",
                 parse_mode="HTML",
             )
@@ -417,7 +423,7 @@ async def handle_text_message(
 
             formatted_messages = [FormattedMessage(str(e), parse_mode="HTML")]
         except Exception as e:
-            logger.error("Claude integration failed", error=str(e), user_id=user_id)
+            logger.error("Codex integration failed", error=str(e), user_id=user_id)
             from ..utils.formatting import FormattedMessage
 
             formatted_messages = [
@@ -682,16 +688,16 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         # Create a new progress message for Claude processing
         claude_progress_msg = await update.message.reply_text(
-            "🤖 Processing file with Claude...", parse_mode="HTML"
+            "🤖 Processing file with Codex...", parse_mode="HTML"
         )
 
-        # Get Claude integration from context
+        # Get Codex integration from context
         claude_integration = context.bot_data.get("claude_integration")
 
         if not claude_integration:
             await claude_progress_msg.edit_text(
-                "❌ <b>Claude integration not available</b>\n\n"
-                "The Claude Code integration is not properly configured.",
+                "❌ <b>Codex integration not available</b>\n\n"
+                "The Codex integration is not properly configured.",
                 parse_mode="HTML",
             )
             return
@@ -809,16 +815,16 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
             # Create Claude progress message
             claude_progress_msg = await update.message.reply_text(
-                "🤖 Analyzing image with Claude...", parse_mode="HTML"
+                "🤖 Analyzing image with Codex...", parse_mode="HTML"
             )
 
-            # Get Claude integration
+            # Get Codex integration
             claude_integration = context.bot_data.get("claude_integration")
 
             if not claude_integration:
                 await claude_progress_msg.edit_text(
-                    "❌ <b>Claude integration not available</b>\n\n"
-                    "The Claude Code integration is not properly configured.",
+                    "❌ <b>Codex integration not available</b>\n\n"
+                    "The Codex integration is not properly configured.",
                     parse_mode="HTML",
                 )
                 return
@@ -943,7 +949,7 @@ def _estimate_file_processing_cost(file_size: int) -> float:
 async def _generate_placeholder_response(
     message_text: str, context: ContextTypes.DEFAULT_TYPE
 ) -> dict:
-    """Generate placeholder response until Claude integration is implemented."""
+    """Generate placeholder response until Codex integration is implemented."""
     settings: Settings = context.bot_data["settings"]
     current_dir = getattr(
         context.user_data, "current_directory", settings.approved_directory
@@ -1002,8 +1008,8 @@ async def _generate_placeholder_response(
             f"<b>Current Status:</b>\n"
             f"• Directory: <code>{relative_path}/</code>\n"
             f"• Bot core: ✅ Active\n"
-            f"• Claude integration: 🔄 Coming soon\n\n"
-            f"Once Claude Code integration is complete, I'll be able to process your "
+            f"• Codex integration: 🔄 Coming soon\n\n"
+            f"Once Codex integration is complete, I'll be able to process your "
             f"requests fully and help with coding tasks!\n\n"
             f"For now, try the available commands like /ls, /cd, and /help."
         )

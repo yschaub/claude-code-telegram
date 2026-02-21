@@ -1,6 +1,6 @@
-"""Claude Code Telegram Bot.
+"""Codex Telegram Bot.
 
-A Telegram bot that provides remote access to Claude Code CLI, allowing developers
+A Telegram bot that provides remote access to Codex CLI, allowing developers
 to interact with their projects from anywhere through a secure, terminal-like
 interface within Telegram.
 
@@ -9,13 +9,13 @@ Features:
 - Feature flags for dynamic functionality control
 - Comprehensive security framework (planned)
 - Session persistence and state management (planned)
-- Real-time Claude Code integration (planned)
+- Real-time Codex CLI integration
 
 Current Implementation Status:
 - ✅ Project Structure & Configuration System (Complete)
 - 🚧 Authentication & Security Framework (TODO-3)
 - 🚧 Telegram Bot Core (TODO-4)
-- 🚧 Claude Code Integration (TODO-5)
+- ✅ Codex CLI Integration
 - 🚧 Storage Layer (TODO-6)
 """
 

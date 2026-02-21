@@ -41,22 +41,22 @@ clean:
 	rm -rf .coverage htmlcov/ .pytest_cache/ dist/ build/
 
 run:
-	poetry run claude-telegram-bot
+	poetry run python -m src.main
 
 # For debugging
 run-debug:
-	poetry run claude-telegram-bot --debug
+	poetry run python -m src.main --debug
 
 # Remote Mac Mini (SSH session)
 run-remote:  ## Start bot on remote Mac in tmux (persists after SSH disconnect)
 	security unlock-keychain ~/Library/Keychains/login.keychain-db
-	tmux new-session -d -s claude-bot 'poetry run claude-telegram-bot'
-	@echo "Bot started in tmux session 'claude-bot'"
+	tmux new-session -d -s codex-bot 'poetry run python -m src.main'
+	@echo "Bot started in tmux session 'codex-bot'"
 	@echo "  Attach: make remote-attach"
 	@echo "  Stop:   make remote-stop"
 
 remote-attach:  ## Attach to running bot tmux session
-	tmux attach -t claude-bot
+	tmux attach -t codex-bot
 
 remote-stop:  ## Stop the bot tmux session
-	tmux kill-session -t claude-bot
+	tmux kill-session -t codex-bot

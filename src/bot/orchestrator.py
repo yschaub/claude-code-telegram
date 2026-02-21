@@ -716,7 +716,7 @@ class MessageOrchestrator:
         claude_integration = context.bot_data.get("claude_integration")
         if not claude_integration:
             await progress_msg.edit_text(
-                "Claude integration not available. Check configuration."
+                "Codex integration not available. Check configuration."
             )
             return
 
@@ -794,7 +794,7 @@ class MessageOrchestrator:
 
         except Exception as e:
             success = False
-            logger.error("Claude integration failed", error=str(e), user_id=user_id)
+            logger.error("Codex integration failed", error=str(e), user_id=user_id)
             from .handlers.message import _format_error_message
             from .utils.formatting import FormattedMessage
 
@@ -921,7 +921,7 @@ class MessageOrchestrator:
         claude_integration = context.bot_data.get("claude_integration")
         if not claude_integration:
             await progress_msg.edit_text(
-                "Claude integration not available. Check configuration."
+                "Codex integration not available. Check configuration."
             )
             return
 
@@ -1015,7 +1015,7 @@ class MessageOrchestrator:
             claude_integration = context.bot_data.get("claude_integration")
             if not claude_integration:
                 await progress_msg.edit_text(
-                    "Claude integration not available. Check configuration."
+                    "Codex integration not available. Check configuration."
                 )
                 return
 

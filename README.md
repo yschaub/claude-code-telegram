@@ -1,15 +1,15 @@
-# Claude Code Telegram Bot
+# Codex Telegram Bot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-A Telegram bot that gives you remote access to [Claude Code](https://claude.ai/code). Chat naturally with Claude about your projects from anywhere -- no terminal commands needed.
+A Telegram bot that gives you remote access to Codex CLI. Chat naturally with Codex about your projects from anywhere -- no terminal commands needed.
 
 ## What is this?
 
-This bot connects Telegram to Claude Code, providing a conversational AI interface for your codebase:
+This bot connects Telegram to Codex CLI, providing a conversational AI interface for your codebase:
 
-- **Chat naturally** -- ask Claude to analyze, edit, or explain your code in plain language
+- **Chat naturally** -- ask Codex to analyze, edit, or explain your code in plain language
 - **Maintain context** across conversations with automatic session persistence per project
 - **Code on the go** from any device with Telegram
 - **Receive proactive notifications** from webhooks, scheduled jobs, and CI/CD events
@@ -23,7 +23,7 @@ This bot connects Telegram to Claude Code, providing a conversational AI interfa
 You: Can you help me add error handling to src/api.py?
 
 Bot: I'll analyze src/api.py and add error handling...
-     [Claude reads your code, suggests improvements, and can apply changes directly]
+     [Codex reads your code, suggests improvements, and can apply changes directly]
 
 You: Looks good. Now run the tests to make sure nothing broke.
 
@@ -35,7 +35,7 @@ Bot: Running pytest...
 
 - **Python 3.10+** -- [Download here](https://www.python.org/downloads/)
 - **Poetry** -- Modern Python dependency management
-- **Claude Code CLI** -- [Install from here](https://claude.ai/code)
+- **Codex CLI** -- Install and authenticate on the host machine (`codex login`)
 - **Telegram Bot Token** -- Get one from [@BotFather](https://t.me/botfather)
 
 ### 2. Install
@@ -56,7 +56,7 @@ cp .env.example .env
 **Minimum required:**
 ```bash
 TELEGRAM_BOT_TOKEN=1234567890:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
-TELEGRAM_BOT_USERNAME=my_claude_bot
+TELEGRAM_BOT_USERNAME=my_codex_bot
 APPROVED_DIRECTORY=/Users/yourname/projects
 ALLOWED_USERS=123456789  # Your Telegram user ID
 ```
@@ -70,7 +70,7 @@ make run-debug    # With debug logging
 
 Message your bot on Telegram to get started.
 
-> **Detailed setup:** See [docs/setup.md](docs/setup.md) for Claude authentication options and troubleshooting.
+> **Detailed setup:** See [docs/setup.md](docs/setup.md) for Codex authentication options and troubleshooting.
 
 ## Modes
 
@@ -78,7 +78,7 @@ The bot supports two interaction modes:
 
 ### Agentic Mode (Default)
 
-The default conversational mode. Just talk to Claude naturally -- no special commands required.
+The default conversational mode. Just talk to Codex naturally -- no special commands required.
 
 **Commands:** `/start`, `/new`, `/status`, `/verbose`, `/repo`
 If `ENABLE_PROJECT_THREADS=true`: `/sync_threads`
@@ -89,7 +89,7 @@ Bot: Working... (3s)
      📖 Read
      📂 LS
      💬 Let me describe the project structure
-Bot: [Claude describes the project structure]
+Bot: [Codex describes the project structure]
 
 You: Add a retry decorator to the HTTP client
 Bot: Working... (8s)
@@ -97,7 +97,7 @@ Bot: Working... (8s)
      💬 I'll add a retry decorator with exponential backoff
      ✏️ Edit: http_client.py
      💻 Bash: poetry run pytest tests/ -v
-Bot: [Claude shows the changes and test results]
+Bot: [Codex shows the changes and test results]
 
 You: /verbose 0
 Bot: Verbosity set to 0 (quiet)
@@ -113,24 +113,24 @@ Use `/verbose 0|1|2` to control how much background activity is shown:
 
 #### GitHub Workflow
 
-Claude Code already knows how to use `gh` CLI and `git`. Authenticate on your server with `gh auth login`, then work with repos conversationally:
+Codex CLI already knows how to use `gh` CLI and `git`. Authenticate on your server with `gh auth login`, then work with repos conversationally:
 
 ```
 You: List my repos related to monitoring
-Bot: [Claude runs gh repo list, shows results]
+Bot: [Codex runs gh repo list, shows results]
 
 You: Clone the uptime one
-Bot: [Claude runs gh repo clone, clones into workspace]
+Bot: [Codex runs gh repo clone, clones into workspace]
 
 You: /repo
 Bot: 📦 uptime-monitor/  ◀
      📁 other-project/
 
 You: Show me the open issues
-Bot: [Claude runs gh issue list]
+Bot: [Codex runs gh issue list]
 
 You: Create a fix branch and push it
-Bot: [Claude creates branch, commits, pushes]
+Bot: [Codex creates branch, commits, pushes]
 ```
 
 Use `/repo` to list cloned repos in your workspace, or `/repo <name>` to switch directories (sessions auto-resume).
@@ -157,8 +157,8 @@ Bot: [Run Tests] [Install Deps] [Format Code] [Run Linter]
 
 Beyond direct chat, the bot can respond to external triggers:
 
-- **Webhooks** -- Receive GitHub events (push, PR, issues) and route them through Claude for automated summaries or code review
-- **Scheduler** -- Run recurring Claude tasks on a cron schedule (e.g., daily code health checks)
+- **Webhooks** -- Receive GitHub events (push, PR, issues) and route them through Codex for automated summaries or code review
+- **Scheduler** -- Run recurring Codex tasks on a cron schedule (e.g., daily code health checks)
 - **Notifications** -- Deliver agent responses to configured Telegram chats
 
 Enable with `ENABLE_API_SERVER=true` and `ENABLE_SCHEDULER=true`. See [docs/setup.md](docs/setup.md) for configuration.
@@ -169,7 +169,7 @@ Enable with `ENABLE_API_SERVER=true` and `ENABLE_SCHEDULER=true`. See [docs/setu
 
 - Conversational agentic mode (default) with natural language interaction
 - Classic terminal-like mode with 13 commands and inline keyboards
-- Full Claude Code integration with SDK (primary) and CLI (fallback)
+- Full Codex CLI integration via non-interactive `codex exec`
 - Automatic session persistence per user/project directory
 - Multi-layer authentication (whitelist + optional token-based)
 - Rate limiting with token bucket algorithm
@@ -187,7 +187,7 @@ Enable with `ENABLE_API_SERVER=true` and `ENABLE_SCHEDULER=true`. See [docs/setu
 - Job scheduler with cron expressions and persistent storage
 - Notification service with per-chat rate limiting
 
-- Tunable verbose output showing Claude's tool usage and reasoning in real-time
+- Tunable verbose output showing Codex's tool usage and reasoning in real-time
 - Persistent typing indicator so users always know the bot is working
 
 ### Planned Enhancements
@@ -208,8 +208,10 @@ ALLOWED_USERS=123456789          # Comma-separated Telegram user IDs
 ### Common Options
 
 ```bash
-# Claude
-ANTHROPIC_API_KEY=sk-ant-...     # API key (optional if using CLI auth)
+# Codex
+CODEX_CLI_PATH=/usr/local/bin/codex
+CODEX_MODEL=                      # Optional model override
+CODEX_HOME=/opt/codex-home        # Optional
 CLAUDE_MAX_COST_PER_USER=10.0    # Spending limit per user (USD)
 CLAUDE_TIMEOUT_SECONDS=300       # Operation timeout
 
@@ -277,12 +279,13 @@ Message [@userinfobot](https://t.me/userinfobot) on Telegram -- it will reply wi
 **Bot doesn't respond:**
 - Check your `TELEGRAM_BOT_TOKEN` is correct
 - Verify your user ID is in `ALLOWED_USERS`
-- Ensure Claude Code CLI is installed and accessible
+- Ensure Codex CLI is installed and accessible
 - Check bot logs with `make run-debug`
 
-**Claude integration not working:**
-- SDK mode (default): Check `claude auth status` or verify `ANTHROPIC_API_KEY`
-- CLI mode: Verify `claude --version` and `claude auth status`
+**Codex integration not working:**
+- Verify `codex --version` works on the host machine
+- Run `codex login status` (must show logged in)
+- If needed, set `CODEX_CLI_PATH`
 - Check `CLAUDE_ALLOWED_TOOLS` includes necessary tools
 
 **High usage costs:**
@@ -328,5 +331,5 @@ MIT License -- see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- [Claude](https://claude.ai) by Anthropic
+- [Codex](https://claude.ai) by Anthropic
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)

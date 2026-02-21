@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any, List, Literal, Optional
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.utils.constants import (
@@ -61,7 +61,29 @@ class Settings(BaseSettings):
         description="Allow all Claude tools by bypassing tool validation checks",
     )
 
-    # Claude settings
+    # Agent runtime settings (Codex primary, Claude aliases kept for compatibility)
+    codex_cli_path: Optional[str] = Field(
+        None,
+        description="Path to Codex CLI executable",
+        validation_alias=AliasChoices("CODEX_CLI_PATH", "CLAUDE_CLI_PATH"),
+    )
+    codex_model: Optional[str] = Field(
+        None,
+        description="Codex model to use (optional; uses CLI default when unset)",
+        validation_alias=AliasChoices("CODEX_MODEL", "CLAUDE_MODEL"),
+    )
+    codex_home: Optional[Path] = Field(
+        None,
+        description="Optional CODEX_HOME override for Codex session state",
+        validation_alias=AliasChoices("CODEX_HOME"),
+    )
+    codex_extra_args: Optional[List[str]] = Field(
+        None,
+        description="Extra CLI flags to pass to codex exec (advanced use only)",
+        validation_alias=AliasChoices("CODEX_EXTRA_ARGS"),
+    )
+
+    # Claude legacy settings (deprecated but still accepted)
     claude_binary_path: Optional[str] = Field(
         None, description="Path to Claude CLI binary (deprecated)"
     )
@@ -242,6 +264,18 @@ class Settings(BaseSettings):
             return [tool.strip() for tool in v.split(",") if tool.strip()]
         if isinstance(v, list):
             return [str(tool) for tool in v]
+        return v  # type: ignore[no-any-return]
+
+    @field_validator("codex_extra_args", mode="before")
+    @classmethod
+    def parse_codex_extra_args(cls, v: Any) -> Optional[List[str]]:
+        """Parse CODEX_EXTRA_ARGS from comma-separated or list values."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return [arg.strip() for arg in v.split(",") if arg.strip()]
+        if isinstance(v, list):
+            return [str(arg).strip() for arg in v if str(arg).strip()]
         return v  # type: ignore[no-any-return]
 
     @field_validator("approved_directory")
