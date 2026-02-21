@@ -14,8 +14,8 @@ from src import __version__
 from src.bot.core import ClaudeCodeBot
 from src.claude import (
     ClaudeIntegration,
+    DefaultToolAuthorizer,
     SessionManager,
-    ToolMonitor,
 )
 from src.claude.sdk_integration import ClaudeSDKManager
 from src.config.features import FeatureFlags
@@ -153,7 +153,7 @@ async def create_application(config: Settings) -> Dict[str, Any]:
     # Create Claude integration components with persistent storage
     session_storage = SQLiteSessionStorage(storage.db_manager)
     session_manager = SessionManager(config, session_storage)
-    tool_monitor = ToolMonitor(
+    tool_authorizer = DefaultToolAuthorizer(
         config, security_validator, agentic_mode=config.agentic_mode
     )
 
@@ -165,7 +165,7 @@ async def create_application(config: Settings) -> Dict[str, Any]:
         config=config,
         sdk_manager=sdk_manager,
         session_manager=session_manager,
-        tool_monitor=tool_monitor,
+        tool_authorizer=tool_authorizer,
     )
 
     # --- Event bus and agentic platform components ---

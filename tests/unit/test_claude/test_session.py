@@ -2,12 +2,13 @@
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import pytest
 
-from src.claude.monitor import ToolMonitor
 from src.claude.sdk_integration import ClaudeResponse
-from src.claude.session import ClaudeSession, InMemorySessionStorage, SessionManager
+from src.claude.session import ClaudeSession, SessionManager
+from src.claude.tool_authorizer import DefaultToolAuthorizer
 from src.config.settings import Settings
 
 
@@ -30,6 +31,28 @@ class _ValidatorStub:
         if self.should_allow_path:
             return True, working_directory / file_path, None
         return False, None, "invalid path"
+
+
+class _MemorySessionStorage:
+    """Minimal in-memory storage used by SessionManager tests."""
+
+    def __init__(self):
+        self.sessions: Dict[str, ClaudeSession] = {}
+
+    async def save_session(self, session: ClaudeSession) -> None:
+        self.sessions[session.session_id] = session
+
+    async def load_session(self, session_id: str) -> Optional[ClaudeSession]:
+        return self.sessions.get(session_id)
+
+    async def delete_session(self, session_id: str) -> None:
+        self.sessions.pop(session_id, None)
+
+    async def get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+        return [s for s in self.sessions.values() if s.user_id == user_id]
+
+    async def get_all_sessions(self) -> List[ClaudeSession]:
+        return list(self.sessions.values())
 
 
 class TestClaudeSession:
@@ -146,7 +169,8 @@ class TestClaudeSession:
 
     def test_is_expired_handles_legacy_naive_last_used(self):
         """Expiry check should not crash on naive legacy timestamps."""
-        naive_old = datetime.now() - timedelta(hours=30)
+        # Simulate legacy naive UTC timestamp persisted without tzinfo.
+        naive_old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=30)
         session = ClaudeSession(
             session_id="legacy-session",
             user_id=123,
@@ -158,13 +182,13 @@ class TestClaudeSession:
         assert session.is_expired(24) is True
 
 
-class TestInMemorySessionStorage:
-    """Test in-memory session storage."""
+class TestMemorySessionStorage:
+    """Test in-memory session storage helper used by tests."""
 
     @pytest.fixture
     def storage(self):
         """Create storage instance."""
-        return InMemorySessionStorage()
+        return _MemorySessionStorage()
 
     @pytest.fixture
     def sample_session(self):
@@ -251,7 +275,9 @@ class TestToolMonitorConfigBypass:
     """Test ToolMonitor behavior when tool validation is disabled."""
 
     async def test_validate_tool_call_bypasses_allowlist_when_disabled(self):
-        monitor = ToolMonitor(_MonitorConfigStub(disable_tool_validation=True), None)
+        monitor = DefaultToolAuthorizer(
+            _MonitorConfigStub(disable_tool_validation=True), None
+        )
 
         allowed, error = await monitor.validate_tool_call(
             tool_name="TotallyCustomTool",
@@ -265,7 +291,9 @@ class TestToolMonitorConfigBypass:
         assert monitor.tool_usage["TotallyCustomTool"] == 1
 
     async def test_validate_tool_call_enforces_allowlist_when_enabled(self):
-        monitor = ToolMonitor(_MonitorConfigStub(disable_tool_validation=False), None)
+        monitor = DefaultToolAuthorizer(
+            _MonitorConfigStub(disable_tool_validation=False), None
+        )
 
         allowed, error = await monitor.validate_tool_call(
             tool_name="TotallyCustomTool",
@@ -279,7 +307,7 @@ class TestToolMonitorConfigBypass:
 
     async def test_disable_tool_validation_still_rejects_invalid_file_path(self):
         validator = _ValidatorStub(should_allow_path=False)
-        monitor = ToolMonitor(
+        monitor = DefaultToolAuthorizer(
             _MonitorConfigStub(disable_tool_validation=True), validator
         )
 
@@ -294,7 +322,9 @@ class TestToolMonitorConfigBypass:
         assert error == "invalid path"
 
     async def test_disable_tool_validation_still_rejects_dangerous_bash(self):
-        monitor = ToolMonitor(_MonitorConfigStub(disable_tool_validation=True), None)
+        monitor = DefaultToolAuthorizer(
+            _MonitorConfigStub(disable_tool_validation=True), None
+        )
 
         allowed, error = await monitor.validate_tool_call(
             tool_name="Bash",
@@ -320,7 +350,7 @@ class TestToolMonitorConfigBypass:
     @pytest.fixture
     def storage(self):
         """Create storage instance."""
-        return InMemorySessionStorage()
+        return _MemorySessionStorage()
 
     @pytest.fixture
     def session_manager(self, config, storage):
@@ -410,7 +440,7 @@ class TestUpdateSessionNewWithoutId:
 
     @pytest.fixture
     def session_manager(self, config):
-        return SessionManager(config, InMemorySessionStorage())
+        return SessionManager(config, _MemorySessionStorage())
 
     async def test_warns_and_does_not_persist(self, session_manager):
         """When Claude returns no session_id, session is not persisted."""

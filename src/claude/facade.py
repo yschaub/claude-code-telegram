@@ -10,9 +10,9 @@ import structlog
 
 from ..config.settings import Settings
 from .exceptions import ClaudeProcessError
-from .monitor import ToolMonitor
 from .sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
 from .session import SessionManager
+from .tool_authorizer import ToolAuthorizer
 
 logger = structlog.get_logger()
 
@@ -25,13 +25,13 @@ class ClaudeIntegration:
         config: Settings,
         sdk_manager: Optional[ClaudeSDKManager] = None,
         session_manager: Optional[SessionManager] = None,
-        tool_monitor: Optional[ToolMonitor] = None,
+        tool_authorizer: Optional[ToolAuthorizer] = None,
     ):
         """Initialize Claude integration facade."""
         self.config = config
         self.sdk_manager = sdk_manager or ClaudeSDKManager(config)
         self.session_manager = session_manager
-        self.tool_monitor = tool_monitor
+        self.tool_authorizer = tool_authorizer
 
     async def run_command(
         self,
@@ -303,21 +303,21 @@ class ClaudeIntegration:
 
     async def get_tool_stats(self) -> Dict[str, Any]:
         """Get tool usage statistics."""
-        if not self.tool_monitor:
+        if not self.tool_authorizer:
             return {
                 "total_calls": 0,
                 "by_tool": {},
                 "unique_tools": 0,
                 "security_violations": 0,
             }
-        return self.tool_monitor.get_tool_stats()
+        return self.tool_authorizer.get_tool_stats()
 
     async def get_user_summary(self, user_id: int) -> Dict[str, Any]:
         """Get comprehensive user summary."""
         session_summary = await self.session_manager.get_user_session_summary(user_id)
         tool_usage = (
-            self.tool_monitor.get_user_tool_usage(user_id)
-            if self.tool_monitor
+            self.tool_authorizer.get_user_tool_usage(user_id)
+            if self.tool_authorizer
             else {
                 "user_id": user_id,
                 "security_violations": 0,
@@ -447,14 +447,14 @@ class ClaudeIntegration:
         Callable[[str, Dict[str, Any]], Awaitable[Tuple[bool, Optional[str]]]]
     ]:
         """Build per-request tool authorization callback for SDK execution."""
-        if not self.tool_monitor:
+        if not self.tool_authorizer:
             return None
 
         async def _can_use_tool(
             tool_name: str,
             tool_input: Dict[str, Any],
         ) -> Tuple[bool, Optional[str]]:
-            valid, error = await self.tool_monitor.validate_tool_call(
+            valid, error = await self.tool_authorizer.validate_tool_call(
                 tool_name=tool_name,
                 tool_input=tool_input,
                 working_directory=working_directory,

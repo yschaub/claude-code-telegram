@@ -2,14 +2,14 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.claude.exceptions import ClaudeProcessError
 from src.claude.facade import ClaudeIntegration
-from src.claude.session import ClaudeSession, InMemorySessionStorage, SessionManager
+from src.claude.session import ClaudeSession, SessionManager
 from src.config.settings import Settings
 
 
@@ -35,6 +35,28 @@ def _make_user_data(force_new: bool = False) -> Dict[str, Any]:
     }
 
 
+class _MemorySessionStorage:
+    """Minimal in-memory storage used by SessionManager tests."""
+
+    def __init__(self):
+        self.sessions: Dict[str, ClaudeSession] = {}
+
+    async def save_session(self, session: ClaudeSession) -> None:
+        self.sessions[session.session_id] = session
+
+    async def load_session(self, session_id: str) -> Optional[ClaudeSession]:
+        return self.sessions.get(session_id)
+
+    async def delete_session(self, session_id: str) -> None:
+        self.sessions.pop(session_id, None)
+
+    async def get_user_sessions(self, user_id: int) -> List[ClaudeSession]:
+        return [s for s in self.sessions.values() if s.user_id == user_id]
+
+    async def get_all_sessions(self) -> List[ClaudeSession]:
+        return list(self.sessions.values())
+
+
 @pytest.fixture
 def config(tmp_path):
     """Create test config."""
@@ -50,24 +72,24 @@ def config(tmp_path):
 @pytest.fixture
 def session_manager(config):
     """Create session manager with in-memory storage."""
-    storage = InMemorySessionStorage()
+    storage = _MemorySessionStorage()
     return SessionManager(config, storage)
 
 
 @pytest.fixture
 def facade(config, session_manager):
-    """Create facade with mocked SDK manager and tool monitor."""
+    """Create facade with mocked SDK manager and tool authorizer."""
     sdk_manager = MagicMock()
-    tool_monitor = MagicMock()
-    tool_monitor.validate_tool_call = AsyncMock(return_value=(True, None))
-    tool_monitor.get_tool_stats = MagicMock(return_value={})
-    tool_monitor.get_user_tool_usage = MagicMock(return_value={})
+    tool_authorizer = MagicMock()
+    tool_authorizer.validate_tool_call = AsyncMock(return_value=(True, None))
+    tool_authorizer.get_tool_stats = MagicMock(return_value={})
+    tool_authorizer.get_user_tool_usage = MagicMock(return_value={})
 
     integration = ClaudeIntegration(
         config=config,
         sdk_manager=sdk_manager,
         session_manager=session_manager,
-        tool_monitor=tool_monitor,
+        tool_authorizer=tool_authorizer,
     )
     return integration
 

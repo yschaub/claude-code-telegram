@@ -9,14 +9,14 @@ from typing import List, Optional
 
 import structlog
 
-from ..claude.session import ClaudeSession, SessionStorage
+from ..claude.session import ClaudeSession, SessionStorageProtocol
 from .database import DatabaseManager
 from .models import SessionModel
 
 logger = structlog.get_logger()
 
 
-class SQLiteSessionStorage(SessionStorage):
+class SQLiteSessionStorage(SessionStorageProtocol):
     """SQLite-based session storage."""
 
     def __init__(self, db_manager: DatabaseManager):

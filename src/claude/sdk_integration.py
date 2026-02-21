@@ -30,7 +30,6 @@ logger = structlog.get_logger()
 
 def find_codex_cli(
     codex_cli_path: Optional[str] = None,
-    claude_cli_path: Optional[str] = None,
 ) -> Optional[str]:
     """Find Codex CLI executable in common locations."""
     import glob
@@ -38,8 +37,6 @@ def find_codex_cli(
     explicit = [
         codex_cli_path,
         os.environ.get("CODEX_CLI_PATH"),
-        claude_cli_path,  # compatibility alias
-        os.environ.get("CLAUDE_CLI_PATH"),  # compatibility alias
     ]
 
     for path in explicit:
@@ -66,11 +63,6 @@ def find_codex_cli(
                 return match
 
     return None
-
-
-def find_claude_cli(claude_cli_path: Optional[str] = None) -> Optional[str]:
-    """Compatibility alias kept for existing call sites/tests."""
-    return find_codex_cli(claude_cli_path=claude_cli_path)
 
 
 @dataclass
@@ -104,7 +96,6 @@ class ClaudeSDKManager:
         self.config = config
         self.codex_path = find_codex_cli(
             codex_cli_path=getattr(config, "codex_cli_path", None),
-            claude_cli_path=getattr(config, "claude_cli_path", None),
         )
 
         if self.codex_path:

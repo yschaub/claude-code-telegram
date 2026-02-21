@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from src.claude.monitor import ToolMonitor, check_bash_directory_boundary
+from src.claude.tool_authorizer import (
+    DefaultToolAuthorizer,
+    check_bash_directory_boundary,
+)
 from src.config.settings import Settings
 
 
@@ -197,11 +200,11 @@ class TestToolMonitorBashBoundary:
         )
 
     @pytest.fixture
-    def monitor(self, config: Settings) -> ToolMonitor:
-        return ToolMonitor(config)
+    def monitor(self, config: Settings) -> DefaultToolAuthorizer:
+        return DefaultToolAuthorizer(config)
 
     async def test_bash_directory_violation_recorded(
-        self, monitor: ToolMonitor, tmp_path: Path
+        self, monitor: DefaultToolAuthorizer, tmp_path: Path
     ) -> None:
         """Bash command writing outside approved dir is caught by validate_tool_call."""
         valid, error = await monitor.validate_tool_call(
@@ -216,7 +219,7 @@ class TestToolMonitorBashBoundary:
         assert monitor.security_violations[0]["type"] == "directory_boundary_violation"
 
     async def test_bash_inside_approved_dir_passes(
-        self, monitor: ToolMonitor, tmp_path: Path
+        self, monitor: DefaultToolAuthorizer, tmp_path: Path
     ) -> None:
         """Bash command within approved dir passes validation."""
         subdir = tmp_path / "subdir"
@@ -230,7 +233,7 @@ class TestToolMonitorBashBoundary:
         assert error is None
 
     async def test_dangerous_pattern_still_checked_first(
-        self, monitor: ToolMonitor, tmp_path: Path
+        self, monitor: DefaultToolAuthorizer, tmp_path: Path
     ) -> None:
         """Dangerous patterns are still caught before directory boundary check."""
         valid, error = await monitor.validate_tool_call(

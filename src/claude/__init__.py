@@ -8,14 +8,13 @@ from .exceptions import (
     ClaudeTimeoutError,
 )
 from .facade import ClaudeIntegration
-from .monitor import ToolMonitor
 from .sdk_integration import ClaudeResponse, ClaudeSDKManager, StreamUpdate
 from .session import (
     ClaudeSession,
-    InMemorySessionStorage,
     SessionManager,
-    SessionStorage,
+    SessionStorageProtocol,
 )
+from .tool_authorizer import DefaultToolAuthorizer, ToolAuthorizer
 
 __all__ = [
     # Exceptions
@@ -31,8 +30,8 @@ __all__ = [
     "ClaudeResponse",
     "StreamUpdate",
     "SessionManager",
-    "SessionStorage",
-    "InMemorySessionStorage",
+    "SessionStorageProtocol",
     "ClaudeSession",
-    "ToolMonitor",
+    "ToolAuthorizer",
+    "DefaultToolAuthorizer",
 ]
