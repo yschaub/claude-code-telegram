@@ -288,6 +288,16 @@ class Settings(BaseSettings):
             return [str(arg).strip() for arg in v if str(arg).strip()]
         return v  # type: ignore[no-any-return]
 
+    @field_validator("codex_home", mode="before")
+    @classmethod
+    def normalize_codex_home(cls, v: Any) -> Optional[Path | str]:
+        """Treat blank CODEX_HOME as unset instead of Path('.')"""
+        if v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v  # type: ignore[no-any-return]
+
     @field_validator("approved_directory")
     @classmethod
     def validate_approved_directory(cls, v: Any) -> Path:

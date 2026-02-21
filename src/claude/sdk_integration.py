@@ -246,8 +246,8 @@ class ClaudeSDKManager:
                 non_json = "\n".join(state["non_json_stdout"][-30:]).strip()
                 event_error_text = "\n".join(state["event_errors"][-8:]).strip()
                 err_text = (
-                    stderr
-                    or event_error_text
+                    event_error_text
+                    or stderr
                     or non_json
                     or f"Codex CLI exited with status {return_code}"
                 )
@@ -405,9 +405,27 @@ class ClaudeSDKManager:
     def _build_environment(self) -> Dict[str, str]:
         env = os.environ.copy()
 
+        # Empty auth-related vars in .env can shadow valid local Codex login state.
+        # Remove blank values before spawning codex.
+        for key in (
+            "CODEX_HOME",
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL",
+            "OPENAI_API_BASE",
+            "OPENAI_ORG_ID",
+            "OPENAI_PROJECT",
+        ):
+            val = env.get(key)
+            if val is not None and not str(val).strip():
+                env.pop(key, None)
+
         codex_home = getattr(self.config, "codex_home", None)
         if codex_home:
-            env["CODEX_HOME"] = str(Path(codex_home).expanduser())
+            expanded = Path(codex_home).expanduser()
+            if str(expanded).strip() and str(expanded) != ".":
+                env["CODEX_HOME"] = str(expanded)
+            else:
+                env.pop("CODEX_HOME", None)
 
         codex_cli_path = getattr(self.config, "codex_cli_path", None)
         if codex_cli_path and "CODEX_CLI_PATH" not in env:

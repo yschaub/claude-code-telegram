@@ -338,6 +338,36 @@ class TestClaudeSDKManager:
 
         assert "approval required" in str(exc_info.value).lower()
 
+    async def test_event_error_takes_precedence_over_stderr_on_nonzero_exit(
+        self, manager: ClaudeSDKManager
+    ):
+        async def _create_process(*cmd, **kwargs):
+            stdout_lines = [
+                b'{"type":"turn.started"}\n',
+                b'{"type":"error","error":{"message":"unexpected status 401 Unauthorized: Missing bearer or basic authentication in header"}}\n',
+                b'{"type":"turn.failed"}\n',
+            ]
+            stderr_lines = [b"WARN codex_core::state_db: record_discrepancy\n"]
+            return _MockProcess(
+                stdout_lines=stdout_lines,
+                stderr_lines=stderr_lines,
+                returncode=1,
+            )
+
+        with patch(
+            "src.claude.sdk_integration.asyncio.create_subprocess_exec",
+            side_effect=_create_process,
+        ):
+            with pytest.raises(ClaudeProcessError) as exc_info:
+                await manager.execute_command(
+                    prompt="hello",
+                    working_directory=Path("/tmp"),
+                )
+
+        error_message = str(exc_info.value).lower()
+        assert "401 unauthorized" in error_message
+        assert "missing bearer" in error_message
+
     async def test_execute_command_timeout(self, manager: ClaudeSDKManager):
         # Make timeout short so test stays fast.
         manager.config.claude_timeout_seconds = 1
@@ -362,3 +392,25 @@ class TestClaudeSDKManager:
 
     def test_get_active_process_count(self, manager: ClaudeSDKManager):
         assert manager.get_active_process_count() == 0
+
+    def test_build_environment_drops_blank_auth_env_vars(
+        self, manager: ClaudeSDKManager, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setenv("CODEX_HOME", "")
+        monkeypatch.setenv("OPENAI_API_KEY", "")
+        monkeypatch.setenv("OPENAI_BASE_URL", "")
+        monkeypatch.setenv("OPENAI_API_BASE", "")
+
+        env = manager._build_environment()
+
+        assert "CODEX_HOME" not in env
+        assert "OPENAI_API_KEY" not in env
+        assert "OPENAI_BASE_URL" not in env
+        assert "OPENAI_API_BASE" not in env
+
+    def test_build_environment_sets_codex_home_from_config(
+        self, manager: ClaudeSDKManager, tmp_path: Path
+    ):
+        manager.config.codex_home = tmp_path / "codex-home"
+        env = manager._build_environment()
+        assert env["CODEX_HOME"] == str((tmp_path / "codex-home").expanduser())
